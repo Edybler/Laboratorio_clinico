@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../providers/app_provider.dart';
 import '../widgets/nav_drawer.dart';
 import '../widgets/estructura_visualizer.dart';
 
