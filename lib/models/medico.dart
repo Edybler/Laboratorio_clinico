@@ -1,4 +1,4 @@
-class Medico {
+  class Medico {
   final String id;
   final String nombre;
   final String especialidad;
