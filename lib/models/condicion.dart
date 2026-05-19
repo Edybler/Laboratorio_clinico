@@ -81,3 +81,4 @@ class Condicion {
 
   @override
   String toString() => 'Condicion($id, $descripcion, $estado)';
+}
