@@ -194,4 +194,181 @@ class AppProvider extends ChangeNotifier {
     }
     return hist;
   }
+
+  // ── Acciones sobre estructuras (expuestas a la UI) ────────────
+
+  /// Agrega un paciente al historial (pila)
+  void agregarAlHistorial(Paciente paciente) {
+    _pilaHistorial.push(paciente);
+    notifyListeners();
+  }
+
+  /// Retira el paciente más reciente del historial
+  Paciente? retirarDelHistorial() {
+    final p = _pilaHistorial.pop();
+    notifyListeners();
+    return p;
+  }
+
+  /// Agrega un paciente a la cola de espera
+  void agregarAColaEspera(Paciente paciente) {
+    _colaEspera.encolar(paciente);
+    notifyListeners();
+  }
+
+  /// Atiende al siguiente paciente (desencola)
+  Paciente? atenderSiguiente() {
+    final p = _colaEspera.desencolar();
+    notifyListeners();
+    return p;
+  }
+
+  /// Agrega una observación a la lista de resultados
+  void agregarResultado(Observacion obs) {
+    _listaResultados.insertarAlFinal(obs);
+    notifyListeners();
+  }
+
+  /// Elimina una observación de la lista de resultados
+  bool eliminarResultado(Observacion obs) {
+    final result = _listaResultados.eliminar(obs);
+    notifyListeners();
+    return result;
+  }
+
+  // ── Carga principal de datos ──────────────────────────────────
+
+  /// Carga todos los datos desde la API HAPI FHIR R4 y los
+  /// distribuye en las estructuras de datos correspondientes.
+  Future<void> cargarDatos() async {
+    if (_cargando) return;
+
+    _cargando = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      // Carga paralela de todos los recursos
+      final resultados = await Future.wait([
+        _fhirService.obtenerPacientes(count: 20),
+        _fhirService.obtenerObservaciones(count: 30),
+        _fhirService.obtenerMedicos(count: 10),
+        _fhirService.obtenerCondiciones(count: 20),
+        _fhirService.obtenerReportesDiagnosticos(count: 20),
+      ]);
+
+      _pacientes = resultados[0] as List<Paciente>;
+      _observaciones = resultados[1] as List<Observacion>;
+      _medicos = resultados[2] as List<Medico>;
+      _condiciones = resultados[3] as List<Condicion>;
+      _reportes = resultados[4] as List<ReporteDiagnostico>;
+
+      // Poblar estructuras de datos
+      _poblarEstructuras();
+    } catch (e) {
+      _error = e.toString().replaceFirst('Exception: ', '');
+    } finally {
+      _cargando = false;
+      notifyListeners();
+    }
+  }
+
+  /// Distribuye los datos cargados en las 6 estructuras de datos.
+  void _poblarEstructuras() {
+    // Limpiar estructuras previas
+    _arbolPacientes.limpiar();
+    _hashBusqueda.limpiar();
+    _grafoMedicos.limpiar();
+    _listaResultados.limpiar();
+    // La pila y cola conservan su estado (son interactivas)
+
+    // ── Árbol BST: indexar pacientes por clave numérica ──────────
+    // La clave es un entero derivado de los primeros 6 chars del ID
+    for (final paciente in _pacientes) {
+      final int clave = _claveNumerica(paciente.id);
+      _arbolPacientes.insertar(clave, paciente.nombreCompleto);
+    }
+
+    // ── Tabla Hash: búsqueda por nombre completo ─────────────────
+    for (final paciente in _pacientes) {
+      final String clave = paciente.nombreCompleto.toLowerCase().trim();
+      if (clave.isNotEmpty) {
+        _hashBusqueda.poner(clave, paciente);
+      }
+      // También indexar por nombre y apellido por separado
+      if (paciente.nombre.isNotEmpty) {
+        _hashBusqueda.poner(paciente.nombre.toLowerCase().trim(), paciente);
+      }
+      if (paciente.apellido.isNotEmpty) {
+        _hashBusqueda.poner(paciente.apellido.toLowerCase().trim(), paciente);
+      }
+    }
+
+    // ── Lista doblemente enlazada: últimas 10 observaciones ──────
+    final ultimas = _observaciones.length > 10
+        ? _observaciones.sublist(_observaciones.length - 10)
+        : _observaciones;
+    for (final obs in ultimas) {
+      _listaResultados.insertarAlFinal(obs);
+    }
+
+    // ── Grafo: red de médicos por especialidad ───────────────────
+    // Cada médico es un vértice; se conecta con médicos de
+    // especialidades relacionadas (misma especialidad → clúster)
+    for (final medico in _medicos) {
+      _grafoMedicos.agregarVertice(medico.nombre);
+    }
+    // Conectar médicos de la misma especialidad entre sí
+    for (int i = 0; i < _medicos.length; i++) {
+      for (int j = i + 1; j < _medicos.length; j++) {
+        if (_medicos[i].especialidad == _medicos[j].especialidad) {
+          _grafoMedicos.agregarArista(_medicos[i].nombre, _medicos[j].nombre);
+        }
+      }
+    }
+    // Conectar médicos con pacientes que tienen condiciones activas
+    // (médico → especialidad representada como vértice adicional)
+    for (final medico in _medicos) {
+      final String espVertice = 'Esp: ${medico.especialidad}';
+      _grafoMedicos.agregarArista(medico.nombre, espVertice);
+    }
+  }
+
+  /// Convierte un ID FHIR (alfanumérico) en una clave entera
+  /// sumando los códigos ASCII de los primeros 8 caracteres.
+  int _claveNumerica(String id) {
+    int suma = 0;
+    final chars = id.replaceAll(RegExp(r'[^0-9a-zA-Z]'), '');
+    for (int i = 0; i < chars.length && i < 8; i++) {
+      suma += chars.codeUnitAt(i);
+    }
+    // Añadir posición para reducir colisiones
+    for (int i = 0; i < chars.length; i++) {
+      suma += chars.codeUnitAt(i) * (i + 1);
+    }
+    return suma;
+  }
+
+  // ── Búsquedas ─────────────────────────────────────────────────
+
+  /// Busca un paciente por nombre exacto en la tabla hash (O(1))
+  Paciente? buscarPacienteHash(String nombre) {
+    return _hashBusqueda.obtener(nombre.toLowerCase().trim()) as Paciente?;
+  }
+
+  /// Busca en el árbol BST por clave numérica del ID
+  String? buscarEnArbol(String pacienteId) {
+    final int clave = _claveNumerica(pacienteId);
+    return _arbolPacientes.buscar(clave);
+  }
+
+  /// BFS desde un médico en el grafo
+  List<String> bfsMedico(String nombreMedico) {
+    return _grafoMedicos.bfs(nombreMedico);
+  }
+
+  /// DFS desde un médico en el grafo
+  List<String> dfsMedico(String nombreMedico) {
+    return _grafoMedicos.dfs(nombreMedico);
+  }
 }
