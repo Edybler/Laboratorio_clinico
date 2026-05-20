@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 
 import '../models/paciente.dart';
 import '../models/observacion.dart';
-import '../providers/app_provider.dart';
 import '../widgets/nav_drawer.dart';
 
 class DetallePacienteScreen extends StatelessWidget {
