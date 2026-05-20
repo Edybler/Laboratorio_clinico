@@ -179,7 +179,7 @@ class _TabPacientes extends StatelessWidget {
           ),
           const SizedBox(height: 24),
 
-          // ── BarChart horizontal — top 5 pacientes ────────────────
+          // ── BarChart — top 5 pacientes ───────────────────────────
           const Text(
             'Top 5 pacientes con más exámenes',
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
@@ -298,11 +298,10 @@ class _TabCondiciones extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Total ────────────────────────────────────────────────
           Text('Total condiciones: $totalCondiciones'),
           const SizedBox(height: 24),
 
-          // ── BarChart — estados de condición ──────────────────────
+          // ── BarChart — estados ───────────────────────────────────
           const Text(
             'Estado de condiciones',
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
@@ -431,8 +430,6 @@ class _TabCondiciones extends StatelessWidget {
             ),
 
           const SizedBox(height: 12),
-
-          // Leyenda de severidades en texto
           ...severidadesEntradas.map(
             (e) => Padding(
               padding: const EdgeInsets.symmetric(vertical: 2),
@@ -443,6 +440,577 @@ class _TabCondiciones extends StatelessWidget {
       ),
     );
   }
+}
 
+// ─────────────────────────────────────────────────────────────────────────────
+// TAB 3 — EXÁMENES
+// ─────────────────────────────────────────────────────────────────────────────
 
+class _TabExamenes extends StatelessWidget {
+  final AppProvider provider;
+  const _TabExamenes({required this.provider});
+
+  @override
+  Widget build(BuildContext context) {
+    final estadosObs = provider.distribucionEstadosObservacion;
+    final estadosRep = provider.distribucionEstadosReporte;
+    final top5Obs = provider.top5Observaciones;
+
+    final totalObs = estadosObs.values.fold(0, (sum, v) => sum + v);
+    final estadosObsEntradas = estadosObs.entries.toList();
+
+    final estadosRepEntradas = estadosRep.entries.toList();
+    final maxRep = estadosRepEntradas.isEmpty
+        ? 1
+        : estadosRepEntradas
+            .map((e) => e.value)
+            .reduce((a, b) => a > b ? a : b);
+
+    final maxTop5Obs = top5Obs.isEmpty
+        ? 1
+        : top5Obs.map((e) => e.value).reduce((a, b) => a > b ? a : b);
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Total observaciones: ${provider.observaciones.length}'),
+          Text('Total reportes: ${provider.reportes.length}'),
+          const SizedBox(height: 24),
+
+          // ── PieChart — estados de observaciones ──────────────────
+          const Text(
+            'Estado de observaciones',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+          ),
+          const SizedBox(height: 12),
+
+          if (estadosObsEntradas.isEmpty || totalObs == 0)
+            const Text('Sin datos de observaciones')
+          else
+            SizedBox(
+              height: 220,
+              child: PieChart(
+                PieChartData(
+                  sectionsSpace: 3,
+                  centerSpaceRadius: 48,
+                  sections:
+                      estadosObsEntradas.asMap().entries.map((entry) {
+                    final colors = [
+                      Colors.green[600]!,
+                      Colors.orange[600]!,
+                      Colors.blue[600]!,
+                      Colors.grey[400]!,
+                      Colors.red[400]!,
+                    ];
+                    final color = colors[entry.key % colors.length];
+                    final pct = entry.value.value / totalObs * 100;
+                    return PieChartSectionData(
+                      value: entry.value.value.toDouble(),
+                      title: '${pct.toStringAsFixed(0)}%',
+                      color: color,
+                      radius: 60,
+                      titleStyle: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+            ),
+
+          const SizedBox(height: 12),
+          ...estadosObsEntradas.map(
+            (e) => Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: Text('${e.key}: ${e.value}'),
+            ),
+          ),
+
+          const SizedBox(height: 24),
+
+          // ── BarChart — top 5 exámenes frecuentes ─────────────────
+          const Text(
+            'Top 5 exámenes más frecuentes',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+          ),
+          const SizedBox(height: 12),
+
+          if (top5Obs.isEmpty)
+            const Text('Sin datos')
+          else
+            SizedBox(
+              height: 220,
+              child: BarChart(
+                BarChartData(
+                  alignment: BarChartAlignment.spaceAround,
+                  maxY: (maxTop5Obs * 1.3).toDouble(),
+                  barGroups: top5Obs.asMap().entries.map((entry) {
+                    return BarChartGroupData(
+                      x: entry.key,
+                      barRods: [
+                        BarChartRodData(
+                          toY: entry.value.value.toDouble(),
+                          color: Colors.purple[600]!,
+                          width: 28,
+                          borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(4),
+                          ),
+                        ),
+                      ],
+                    );
+                  }).toList(),
+                  titlesData: FlTitlesData(
+                    bottomTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        getTitlesWidget: (value, meta) {
+                          final idx = value.toInt();
+                          if (idx < 0 || idx >= top5Obs.length) {
+                            return const SizedBox.shrink();
+                          }
+                          final label = top5Obs[idx].key;
+                          final corto = label.length > 8
+                              ? label.substring(0, 8)
+                              : label;
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Text(
+                              corto,
+                              style: const TextStyle(fontSize: 9),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    leftTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        reservedSize: 28,
+                        getTitlesWidget: (value, meta) => Text(
+                          '${value.toInt()}',
+                          style: const TextStyle(fontSize: 9),
+                        ),
+                      ),
+                    ),
+                    topTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                    rightTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                  ),
+                  gridData: FlGridData(
+                    show: true,
+                    drawVerticalLine: false,
+                    getDrawingHorizontalLine: (value) => FlLine(
+                      color: Colors.grey[300]!,
+                      strokeWidth: 1,
+                    ),
+                  ),
+                  borderData: FlBorderData(show: false),
+                ),
+              ),
+            ),
+
+          const SizedBox(height: 24),
+
+          // ── BarChart — estados de reportes ───────────────────────
+          const Text(
+            'Estado de reportes diagnósticos',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+          ),
+          const SizedBox(height: 12),
+
+          if (estadosRepEntradas.isEmpty)
+            const Text('Sin datos de reportes')
+          else
+            SizedBox(
+              height: 220,
+              child: BarChart(
+                BarChartData(
+                  alignment: BarChartAlignment.spaceAround,
+                  maxY: (maxRep * 1.3).toDouble(),
+                  barGroups: estadosRepEntradas.asMap().entries.map((entry) {
+                    return BarChartGroupData(
+                      x: entry.key,
+                      barRods: [
+                        BarChartRodData(
+                          toY: entry.value.value.toDouble(),
+                          color: Colors.teal[600]!,
+                          width: 28,
+                          borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(4),
+                          ),
+                        ),
+                      ],
+                    );
+                  }).toList(),
+                  titlesData: FlTitlesData(
+                    bottomTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        getTitlesWidget: (value, meta) {
+                          final idx = value.toInt();
+                          if (idx < 0 ||
+                              idx >= estadosRepEntradas.length) {
+                            return const SizedBox.shrink();
+                          }
+                          final label = estadosRepEntradas[idx].key;
+                          final corto = label.length > 8
+                              ? label.substring(0, 8)
+                              : label;
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Text(
+                              corto,
+                              style: const TextStyle(fontSize: 9),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    leftTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        reservedSize: 28,
+                        getTitlesWidget: (value, meta) => Text(
+                          '${value.toInt()}',
+                          style: const TextStyle(fontSize: 9),
+                        ),
+                      ),
+                    ),
+                    topTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                    rightTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                  ),
+                  gridData: FlGridData(
+                    show: true,
+                    drawVerticalLine: false,
+                    getDrawingHorizontalLine: (value) => FlLine(
+                      color: Colors.grey[300]!,
+                      strokeWidth: 1,
+                    ),
+                  ),
+                  borderData: FlBorderData(show: false),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TAB 4 — ESTRUCTURAS DE DATOS
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _TabEstructuras extends StatelessWidget {
+  final AppProvider provider;
+  const _TabEstructuras({required this.provider});
+
+  @override
+  Widget build(BuildContext context) {
+    final hist = provider.histogramaCubetas;
+    final colisiones = provider.colisionesHash;
+    final totalCubetas = provider.hashBusqueda.totalCubetas;
+    final alturaBST = provider.alturaBST;
+    final totalNodosBST = provider.arbolPacientes.tamano;
+    final inOrden = provider.arbolPacientes.enOrden().take(10).toList();
+
+    final histEntradas = hist.entries.toList()
+      ..sort((a, b) => a.key.compareTo(b.key));
+    final maxHist = histEntradas.isEmpty
+        ? 1
+        : histEntradas
+            .map((e) => e.value)
+            .reduce((a, b) => a > b ? a : b);
+
+    final especialidades = provider.distribucionEspecialidades;
+    final espEntradas = especialidades.entries.toList();
+    final maxEsp = espEntradas.isEmpty
+        ? 1
+        : espEntradas
+            .map((e) => e.value)
+            .reduce((a, b) => a > b ? a : b);
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Resumen de estructuras ───────────────────────────────
+          const Text(
+            'Estado actual de estructuras',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+          ),
+          const SizedBox(height: 8),
+          Text('Pila (historial): ${provider.pilaHistorial.tamano} elementos'),
+          Text('Cola (espera): ${provider.colaEspera.tamano} pacientes'),
+          Text('Lista doble: ${provider.listaResultados.tamano} registros'),
+          Text('Árbol BST: $totalNodosBST nodos, altura $alturaBST'),
+          Text(
+              'Tabla hash: $totalCubetas cubetas, $colisiones colisiones'),
+          Text(
+              'Grafo: ${provider.grafoMedicos.totalVertices} vértices, ${provider.grafoMedicos.totalAristas} aristas'),
+
+          const SizedBox(height: 24),
+
+          // ── BarChart — histograma de cubetas hash ────────────────
+          const Text(
+            'Tabla Hash — Ocupación de cubetas',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+          ),
+          Text(
+            'Eje X = elementos por cubeta  |  Eje Y = número de cubetas',
+            style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+          ),
+          const SizedBox(height: 12),
+
+          if (histEntradas.isEmpty)
+            const Text('Sin datos en la tabla hash')
+          else
+            SizedBox(
+              height: 220,
+              child: BarChart(
+                BarChartData(
+                  alignment: BarChartAlignment.spaceAround,
+                  maxY: (maxHist * 1.3).toDouble(),
+                  barGroups: histEntradas.asMap().entries.map((entry) {
+                    final elemCount = entry.value.key;
+                    final cubetaCount = entry.value.value;
+                    Color color;
+                    if (elemCount == 0) {
+                      color = Colors.grey[300]!;
+                    } else if (elemCount == 1) {
+                      color = Colors.blueGrey[600]!;
+                    } else {
+                      color = Colors.red[400]!;
+                    }
+                    return BarChartGroupData(
+                      x: entry.key,
+                      barRods: [
+                        BarChartRodData(
+                          toY: cubetaCount.toDouble(),
+                          color: color,
+                          width: 28,
+                          borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(4),
+                          ),
+                        ),
+                      ],
+                    );
+                  }).toList(),
+                  titlesData: FlTitlesData(
+                    bottomTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        getTitlesWidget: (value, meta) {
+                          final idx = value.toInt();
+                          if (idx < 0 || idx >= histEntradas.length) {
+                            return const SizedBox.shrink();
+                          }
+                          final elemCount = histEntradas[idx].key;
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Text(
+                              '$elemCount elem.',
+                              style: const TextStyle(fontSize: 9),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    leftTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        reservedSize: 28,
+                        getTitlesWidget: (value, meta) => Text(
+                          '${value.toInt()}',
+                          style: const TextStyle(fontSize: 9),
+                        ),
+                      ),
+                    ),
+                    topTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                    rightTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                  ),
+                  gridData: FlGridData(
+                    show: true,
+                    drawVerticalLine: false,
+                    getDrawingHorizontalLine: (value) => FlLine(
+                      color: Colors.grey[300]!,
+                      strokeWidth: 1,
+                    ),
+                  ),
+                  borderData: FlBorderData(show: false),
+                ),
+              ),
+            ),
+
+          const SizedBox(height: 24),
+
+          // ── BST — recorrido inOrden ──────────────────────────────
+          const Text(
+            'Árbol BST — Recorrido inOrden (primeros 10)',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+          ),
+          const SizedBox(height: 8),
+
+          if (inOrden.isEmpty)
+            const Text('Árbol vacío')
+          else
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: inOrden.map((nodo) {
+                  return Container(
+                    margin: const EdgeInsets.only(right: 8),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.green[400]!),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          '${nodo['clave']}',
+                          style: const TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold),
+                        ),
+                        Text(
+                          (nodo['valor'] as String).split(' ').first,
+                          style: const TextStyle(fontSize: 9),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+
+          const SizedBox(height: 24),
+
+          // ── BarChart — especialidades del grafo ──────────────────
+          const Text(
+            'Grafo — Distribución de especialidades',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+          ),
+          const SizedBox(height: 12),
+
+          if (espEntradas.isEmpty)
+            const Text('Sin datos del grafo')
+          else
+            SizedBox(
+              height: 220,
+              child: BarChart(
+                BarChartData(
+                  alignment: BarChartAlignment.spaceAround,
+                  maxY: (maxEsp * 1.3).toDouble(),
+                  barGroups: espEntradas.asMap().entries.map((entry) {
+                    return BarChartGroupData(
+                      x: entry.key,
+                      barRods: [
+                        BarChartRodData(
+                          toY: entry.value.value.toDouble(),
+                          color: Colors.teal[600]!,
+                          width: 28,
+                          borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(4),
+                          ),
+                        ),
+                      ],
+                    );
+                  }).toList(),
+                  titlesData: FlTitlesData(
+                    bottomTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        getTitlesWidget: (value, meta) {
+                          final idx = value.toInt();
+                          if (idx < 0 || idx >= espEntradas.length) {
+                            return const SizedBox.shrink();
+                          }
+                          final label = espEntradas[idx].key;
+                          final corto = label.length > 8
+                              ? label.substring(0, 8)
+                              : label;
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Text(
+                              corto,
+                              style: const TextStyle(fontSize: 9),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    leftTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        reservedSize: 28,
+                        getTitlesWidget: (value, meta) => Text(
+                          '${value.toInt()}',
+                          style: const TextStyle(fontSize: 9),
+                        ),
+                      ),
+                    ),
+                    topTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                    rightTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                  ),
+                  gridData: FlGridData(
+                    show: true,
+                    drawVerticalLine: false,
+                    getDrawingHorizontalLine: (value) => FlLine(
+                      color: Colors.grey[300]!,
+                      strokeWidth: 1,
+                    ),
+                  ),
+                  borderData: FlBorderData(show: false),
+                ),
+              ),
+            ),
+
+          const SizedBox(height: 24),
+
+          // ── Grado de médicos en el grafo ─────────────────────────
+          const Text(
+            'Grafo — Grado de conectividad por médico',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+          ),
+          const SizedBox(height: 8),
+
+          if (provider.medicos.isEmpty)
+            const Text('Sin médicos cargados')
+          else
+            ...provider.medicos.take(8).map((m) {
+              final grado = provider.grafoMedicos.grado(m.nombre);
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 3),
+                child: Text('${m.nombre}: grado $grado'),
+              );
+            }),
+
+          const SizedBox(height: 24),
+        ],
+      ),
+    );
+  }
 }
