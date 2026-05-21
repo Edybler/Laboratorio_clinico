@@ -39,7 +39,7 @@ class AppProvider extends ChangeNotifier {
   List<Condicion> get condiciones => List.unmodifiable(_condiciones);
   List<ReporteDiagnostico> get reportes => List.unmodifiable(_reportes);
 
-  // ── Estructuras de datos ──────────────────────────────────────
+  // ── Estructuras de datos del dominio (para FHIR / pacientes) ──
 
   /// PILA: Historial de pacientes/exámenes consultados (LIFO)
   final Pila<Paciente> _pilaHistorial = Pila<Paciente>();
@@ -64,6 +64,108 @@ class AppProvider extends ChangeNotifier {
   /// GRAFO: Red de médicos referidos entre especialidades
   final Grafo _grafoMedicos = Grafo();
   Grafo get grafoMedicos => _grafoMedicos;
+
+  // ── Estructuras manuales de String (pantallas interactivas) ───
+  // Estas persisten mientras el AppProvider vive (toda la sesión).
+  // Las pantallas PilaScreen, ColaScreen, etc. escriben/leen aquí.
+
+  final Pila<String> pilaManual = Pila<String>();
+  final Cola<String> colaManual = Cola<String>();
+  final ListaDoble<String> listaManual = ListaDoble<String>();
+  final ArbolBST arbolManual = ArbolBST();
+  final TablaHash hashManual = TablaHash();
+
+  // ── Acciones sobre la PILA manual ────────────────────────────
+
+  void pilaManualPush(String dato) {
+    pilaManual.push(dato);
+    notifyListeners();
+  }
+
+  String? pilaManualPop() {
+    final v = pilaManual.pop();
+    notifyListeners();
+    return v;
+  }
+
+  void pilaManualLimpiar() {
+    pilaManual.limpiar();
+    notifyListeners();
+  }
+
+  // ── Acciones sobre la COLA manual ────────────────────────────
+
+  void colaManualEncolar(String dato) {
+    colaManual.encolar(dato);
+    notifyListeners();
+  }
+
+  String? colaManualDesencolar() {
+    final v = colaManual.desencolar();
+    notifyListeners();
+    return v;
+  }
+
+  void colaManualLimpiar() {
+    colaManual.limpiar();
+    notifyListeners();
+  }
+
+  // ── Acciones sobre la LISTA manual ───────────────────────────
+
+  void listaManualInsertar(String dato) {
+    listaManual.insertarAlFinal(dato);
+    notifyListeners();
+  }
+
+  void listaManualEliminar(String dato) {
+    listaManual.eliminar(dato);
+    notifyListeners();
+  }
+
+  void listaManualLimpiar() {
+    listaManual.limpiar();
+    notifyListeners();
+  }
+
+  // ── Acciones sobre el ÁRBOL manual ───────────────────────────
+
+  void arbolManualInsertar(int clave, String valor) {
+    arbolManual.insertar(clave, valor);
+    notifyListeners();
+  }
+
+  bool arbolManualEliminar(int clave) {
+    final ok = arbolManual.eliminar(clave);
+    notifyListeners();
+    return ok;
+  }
+
+  String? arbolManualBuscar(int clave) {
+    return arbolManual.buscar(clave);
+  }
+
+  void arbolManualLimpiar() {
+    arbolManual.limpiar();
+    notifyListeners();
+  }
+
+  // ── Acciones sobre la HASH manual ────────────────────────────
+
+  void hashManualPoner(String clave, String valor) {
+    hashManual.poner(clave, valor);
+    notifyListeners();
+  }
+
+  void hashManualEliminar(String clave) {
+    hashManual.eliminar(clave);
+    notifyListeners();
+  }
+
+  void hashManualLimpiar() {
+    hashManual.limpiar();
+    notifyListeners();
+  }
 
   // ── Métricas de análisis ──────────────────────────────────────
 
@@ -195,7 +297,7 @@ class AppProvider extends ChangeNotifier {
     return hist;
   }
 
-  // ── Acciones sobre estructuras (expuestas a la UI) ────────────
+  // ── Acciones sobre estructuras del dominio (expuestas a la UI) ─
 
   /// Agrega un paciente al historial (pila)
   void agregarAlHistorial(Paciente paciente) {
@@ -280,10 +382,10 @@ class AppProvider extends ChangeNotifier {
     _hashBusqueda.limpiar();
     _grafoMedicos.limpiar();
     _listaResultados.limpiar();
-    // La pila y cola conservan su estado (son interactivas)
+    // La pila y cola de dominio conservan su estado (son interactivas)
+    // Las estructuras manuales (pilaManual, colaManual, etc.) NUNCA se limpian aquí
 
     // ── Árbol BST: indexar pacientes por clave numérica ──────────
-    // La clave es un entero derivado de los primeros 6 chars del ID
     for (final paciente in _pacientes) {
       final int clave = _claveNumerica(paciente.id);
       _arbolPacientes.insertar(clave, paciente.nombreCompleto);
@@ -295,7 +397,6 @@ class AppProvider extends ChangeNotifier {
       if (clave.isNotEmpty) {
         _hashBusqueda.poner(clave, paciente);
       }
-      // También indexar por nombre y apellido por separado
       if (paciente.nombre.isNotEmpty) {
         _hashBusqueda.poner(paciente.nombre.toLowerCase().trim(), paciente);
       }
@@ -313,12 +414,9 @@ class AppProvider extends ChangeNotifier {
     }
 
     // ── Grafo: red de médicos por especialidad ───────────────────
-    // Cada médico es un vértice; se conecta con médicos de
-    // especialidades relacionadas (misma especialidad → clúster)
     for (final medico in _medicos) {
       _grafoMedicos.agregarVertice(medico.nombre);
     }
-    // Conectar médicos de la misma especialidad entre sí
     for (int i = 0; i < _medicos.length; i++) {
       for (int j = i + 1; j < _medicos.length; j++) {
         if (_medicos[i].especialidad == _medicos[j].especialidad) {
@@ -326,8 +424,6 @@ class AppProvider extends ChangeNotifier {
         }
       }
     }
-    // Conectar médicos con pacientes que tienen condiciones activas
-    // (médico → especialidad representada como vértice adicional)
     for (final medico in _medicos) {
       final String espVertice = 'Esp: ${medico.especialidad}';
       _grafoMedicos.agregarArista(medico.nombre, espVertice);
@@ -335,14 +431,12 @@ class AppProvider extends ChangeNotifier {
   }
 
   /// Convierte un ID FHIR (alfanumérico) en una clave entera
-  /// sumando los códigos ASCII de los primeros 8 caracteres.
   int _claveNumerica(String id) {
     int suma = 0;
     final chars = id.replaceAll(RegExp(r'[^0-9a-zA-Z]'), '');
     for (int i = 0; i < chars.length && i < 8; i++) {
       suma += chars.codeUnitAt(i);
     }
-    // Añadir posición para reducir colisiones
     for (int i = 0; i < chars.length; i++) {
       suma += chars.codeUnitAt(i) * (i + 1);
     }
@@ -351,23 +445,19 @@ class AppProvider extends ChangeNotifier {
 
   // ── Búsquedas ─────────────────────────────────────────────────
 
-  /// Busca un paciente por nombre exacto en la tabla hash (O(1))
   Paciente? buscarPacienteHash(String nombre) {
     return _hashBusqueda.obtener(nombre.toLowerCase().trim()) as Paciente?;
   }
 
-  /// Busca en el árbol BST por clave numérica del ID
   String? buscarEnArbol(String pacienteId) {
     final int clave = _claveNumerica(pacienteId);
     return _arbolPacientes.buscar(clave);
   }
 
-  /// BFS desde un médico en el grafo
   List<String> bfsMedico(String nombreMedico) {
     return _grafoMedicos.bfs(nombreMedico);
   }
 
-  /// DFS desde un médico en el grafo
   List<String> dfsMedico(String nombreMedico) {
     return _grafoMedicos.dfs(nombreMedico);
   }
