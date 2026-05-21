@@ -11,7 +11,7 @@ class ListaScreen extends StatefulWidget {
 
 class _ListaScreenState extends State<ListaScreen> {
 
-  final ListaEnlazada<String> lista = ListaEnlazada<String>();
+  final ListaDoble<String> lista = ListaDoble<String>();
 
   final TextEditingController controller = TextEditingController();
 
@@ -25,7 +25,7 @@ class _ListaScreenState extends State<ListaScreen> {
 
     setState(() {
 
-      lista.insertar(controller.text);
+      lista.insertarAlFinal(controller.text);
 
       mensaje = "Dato insertado";
 
@@ -49,7 +49,7 @@ class _ListaScreenState extends State<ListaScreen> {
 
     setState(() {
 
-      lista.clear();
+      lista.limpiar();
 
       mensaje = "Lista limpiada";
     });
@@ -58,7 +58,7 @@ class _ListaScreenState extends State<ListaScreen> {
   @override
   Widget build(BuildContext context) {
 
-    final datos = lista.obtenerDatos();
+    final datos = lista.aLista();
 
     return Scaffold(
 
@@ -117,6 +117,16 @@ class _ListaScreenState extends State<ListaScreen> {
             ),
 
             const SizedBox(height: 20),
+
+            Text(
+              mensaje,
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+
+            const SizedBox(height: 10),
 
             Expanded(
 
