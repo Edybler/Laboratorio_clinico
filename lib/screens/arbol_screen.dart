@@ -13,26 +13,28 @@ class _ArbolScreenState extends State<ArbolScreen> {
 
   final ArbolBST arbol = ArbolBST();
 
-  final TextEditingController controller =
-      TextEditingController();
+  final TextEditingController claveController = TextEditingController();
+  final TextEditingController valorController = TextEditingController();
 
   String recorrido = "";
 
   void insertar() {
 
-    if (controller.text.isEmpty) {
+    if (claveController.text.isEmpty || valorController.text.isEmpty) {
       return;
     }
 
     setState(() {
 
       arbol.insertar(
-        int.parse(controller.text),
+        int.parse(claveController.text),
+        valorController.text,
       );
 
-      recorrido = arbol.inorder().toString();
+      recorrido = arbol.enOrden().map((e) => '${e['clave']}: ${e['valor']}').join(', ');
 
-      controller.clear();
+      claveController.clear();
+      valorController.clear();
     });
   }
 
@@ -40,7 +42,7 @@ class _ArbolScreenState extends State<ArbolScreen> {
 
     setState(() {
 
-      arbol.clear();
+      arbol.limpiar();
 
       recorrido = "";
     });
@@ -49,7 +51,7 @@ class _ArbolScreenState extends State<ArbolScreen> {
   @override
   Widget build(BuildContext context) {
 
-    final datos = arbol.inorder();
+    final datos = arbol.enOrden();
 
     return Scaffold(
 
@@ -68,13 +70,29 @@ class _ArbolScreenState extends State<ArbolScreen> {
 
             TextField(
 
-              controller: controller,
+              controller: claveController,
 
               keyboardType: TextInputType.number,
 
               decoration: InputDecoration(
 
-                labelText: "Ingresar número",
+                labelText: "Clave (número)",
+
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(15),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            TextField(
+
+              controller: valorController,
+
+              decoration: InputDecoration(
+
+                labelText: "Valor (texto)",
 
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(15),
@@ -86,8 +104,7 @@ class _ArbolScreenState extends State<ArbolScreen> {
 
             Row(
 
-              mainAxisAlignment:
-                  MainAxisAlignment.spaceEvenly,
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
 
               children: [
 
@@ -106,9 +123,9 @@ class _ArbolScreenState extends State<ArbolScreen> {
             const SizedBox(height: 20),
 
             Text(
-              "Recorrido Inorder: $recorrido",
+              "Recorrido InOrden: $recorrido",
               style: const TextStyle(
-                fontSize: 18,
+                fontSize: 16,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -143,7 +160,7 @@ class _ArbolScreenState extends State<ArbolScreen> {
 
                     child: Center(
                       child: Text(
-                        datos[index].toString(),
+                        'Clave: ${datos[index]['clave']} → ${datos[index]['valor']}',
                       ),
                     ),
                   );

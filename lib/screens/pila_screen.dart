@@ -57,7 +57,7 @@ class _PilaScreenState extends State<PilaScreen> {
 
     setState(() {
 
-      pila.clear();
+      pila.limpiar();
 
       mensaje = "Pila limpiada";
     });
@@ -66,7 +66,7 @@ class _PilaScreenState extends State<PilaScreen> {
   @override
   Widget build(BuildContext context) {
 
-    final elementos = pila.getItems();
+    final elementos = pila.aLista();
 
     return Scaffold(
 
