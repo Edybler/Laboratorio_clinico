@@ -1,25 +1,29 @@
 // lib/data_structures/arbol_bst.dart
 // Uso: Índice de pacientes por ID numérico (para búsqueda rápida)
 
-class _NodoArbol {
+/// Nodo público para poder visualizar el árbol desde fuera
+class NodoArbolBST {
   int clave;
   String valor;
-  _NodoArbol? izquierdo;
-  _NodoArbol? derecho;
+  NodoArbolBST? izquierdo;
+  NodoArbolBST? derecho;
 
-  _NodoArbol(this.clave, this.valor);
+  NodoArbolBST(this.clave, this.valor);
 }
 
 class ArbolBST {
-  _NodoArbol? _raiz;
+  NodoArbolBST? _raiz;
+
+  /// Expone la raíz para poder dibujar el árbol visualmente
+  NodoArbolBST? get raiz => _raiz;
 
   /// Inserta un nuevo nodo con la clave y valor dados
   void insertar(int clave, String valor) {
     _raiz = _insertarRec(_raiz, clave, valor);
   }
 
-  _NodoArbol _insertarRec(_NodoArbol? nodo, int clave, String valor) {
-    if (nodo == null) return _NodoArbol(clave, valor);
+  NodoArbolBST _insertarRec(NodoArbolBST? nodo, int clave, String valor) {
+    if (nodo == null) return NodoArbolBST(clave, valor);
     if (clave < nodo.clave) {
       nodo.izquierdo = _insertarRec(nodo.izquierdo, clave, valor);
     } else if (clave > nodo.clave) {
@@ -36,7 +40,7 @@ class ArbolBST {
     return _buscarRec(_raiz, clave);
   }
 
-  String? _buscarRec(_NodoArbol? nodo, int clave) {
+  String? _buscarRec(NodoArbolBST? nodo, int clave) {
     if (nodo == null) return null;
     if (clave == nodo.clave) return nodo.valor;
     if (clave < nodo.clave) return _buscarRec(nodo.izquierdo, clave);
@@ -51,7 +55,7 @@ class ArbolBST {
     return antes != despues;
   }
 
-  _NodoArbol? _eliminarRec(_NodoArbol? nodo, int clave) {
+  NodoArbolBST? _eliminarRec(NodoArbolBST? nodo, int clave) {
     if (nodo == null) return null;
 
     if (clave < nodo.clave) {
@@ -59,12 +63,8 @@ class ArbolBST {
     } else if (clave > nodo.clave) {
       nodo.derecho = _eliminarRec(nodo.derecho, clave);
     } else {
-      // Nodo encontrado
-      // Sin hijo izquierdo
       if (nodo.izquierdo == null) return nodo.derecho;
-      // Sin hijo derecho
       if (nodo.derecho == null) return nodo.izquierdo;
-      // Dos hijos: reemplazar con el sucesor inorden (mínimo del subárbol derecho)
       final sucesor = _minimoNodo(nodo.derecho!);
       nodo.clave = sucesor.clave;
       nodo.valor = sucesor.valor;
@@ -73,8 +73,8 @@ class ArbolBST {
     return nodo;
   }
 
-  _NodoArbol _minimoNodo(_NodoArbol nodo) {
-    _NodoArbol actual = nodo;
+  NodoArbolBST _minimoNodo(NodoArbolBST nodo) {
+    NodoArbolBST actual = nodo;
     while (actual.izquierdo != null) {
       actual = actual.izquierdo!;
     }
@@ -82,14 +82,13 @@ class ArbolBST {
   }
 
   /// Retorna la lista de nodos en recorrido inOrden (izq → raíz → der)
-  /// Produce claves en orden ascendente
   List<Map<String, dynamic>> enOrden() {
     final lista = <Map<String, dynamic>>[];
     _enOrdenRec(_raiz, lista);
     return lista;
   }
 
-  void _enOrdenRec(_NodoArbol? nodo, List<Map<String, dynamic>> lista) {
+  void _enOrdenRec(NodoArbolBST? nodo, List<Map<String, dynamic>> lista) {
     if (nodo == null) return;
     _enOrdenRec(nodo.izquierdo, lista);
     lista.add({'clave': nodo.clave, 'valor': nodo.valor});
@@ -103,7 +102,7 @@ class ArbolBST {
     return lista;
   }
 
-  void _preOrdenRec(_NodoArbol? nodo, List<Map<String, dynamic>> lista) {
+  void _preOrdenRec(NodoArbolBST? nodo, List<Map<String, dynamic>> lista) {
     if (nodo == null) return;
     lista.add({'clave': nodo.clave, 'valor': nodo.valor});
     _preOrdenRec(nodo.izquierdo, lista);
@@ -115,14 +114,14 @@ class ArbolBST {
     return _alturaRec(_raiz);
   }
 
-  int _alturaRec(_NodoArbol? nodo) {
+  int _alturaRec(NodoArbolBST? nodo) {
     if (nodo == null) return 0;
     final altIzq = _alturaRec(nodo.izquierdo);
     final altDer = _alturaRec(nodo.derecho);
     return 1 + (altIzq > altDer ? altIzq : altDer);
   }
 
-  int _contarNodos(_NodoArbol? nodo) {
+  int _contarNodos(NodoArbolBST? nodo) {
     if (nodo == null) return 0;
     return 1 + _contarNodos(nodo.izquierdo) + _contarNodos(nodo.derecho);
   }

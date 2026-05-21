@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/app_provider.dart';
+import '../widgets/nav_drawer.dart';
 import '../data_structures/arbol_bst.dart';
 
 class ArbolScreen extends StatefulWidget {
-
   const ArbolScreen({super.key});
 
   @override
@@ -10,166 +12,434 @@ class ArbolScreen extends StatefulWidget {
 }
 
 class _ArbolScreenState extends State<ArbolScreen> {
-
-  final ArbolBST arbol = ArbolBST();
-
+  // ─── Los controllers son locales (solo para los TextField) ───
   final TextEditingController claveController = TextEditingController();
   final TextEditingController valorController = TextEditingController();
+  final TextEditingController buscarController = TextEditingController();
 
-  String recorrido = "";
+  String mensaje = '';
+  int? claveResaltada;
 
-  void insertar() {
+  @override
+  void dispose() {
+    claveController.dispose();
+    valorController.dispose();
+    buscarController.dispose();
+    super.dispose();
+  }
 
+  void insertar(AppProvider provider) {
     if (claveController.text.isEmpty || valorController.text.isEmpty) {
+      setState(() => mensaje = '⚠️ Ingresa clave y valor.');
       return;
     }
-
+    final clave = int.tryParse(claveController.text);
+    if (clave == null) {
+      setState(() => mensaje = '⚠️ La clave debe ser un número entero.');
+      return;
+    }
+    // Usamos el provider para que el estado persista
+    provider.arbolManualInsertar(clave, valorController.text);
     setState(() {
+      claveResaltada = clave;
+      mensaje = '✅ Nodo $clave insertado.';
+      claveController.clear();
+      valorController.clear();
+    });
+    Future.delayed(const Duration(milliseconds: 1500), () {
+      if (mounted) setState(() => claveResaltada = null);
+    });
+  }
 
-      arbol.insertar(
-        int.parse(claveController.text),
-        valorController.text,
-      );
-
-      recorrido = arbol.enOrden().map((e) => '${e['clave']}: ${e['valor']}').join(', ');
-
+  void eliminar(AppProvider provider) {
+    if (claveController.text.isEmpty) {
+      setState(() => mensaje = '⚠️ Ingresa la clave a eliminar.');
+      return;
+    }
+    final clave = int.tryParse(claveController.text);
+    if (clave == null) return;
+    final ok = provider.arbolManualEliminar(clave);
+    setState(() {
+      mensaje = ok ? '🗑️ Nodo $clave eliminado.' : '❌ Clave $clave no encontrada.';
+      claveResaltada = null;
       claveController.clear();
       valorController.clear();
     });
   }
 
-  void limpiar() {
-
+  void buscar(AppProvider provider) {
+    final clave = int.tryParse(buscarController.text);
+    if (clave == null) {
+      setState(() => mensaje = '⚠️ Ingresa una clave numérica para buscar.');
+      return;
+    }
+    final resultado = provider.arbolManualBuscar(clave);
     setState(() {
+      if (resultado != null) {
+        claveResaltada = clave;
+        mensaje = '🔍 Encontrado: $clave → "$resultado"';
+      } else {
+        claveResaltada = null;
+        mensaje = '❌ Clave $clave no encontrada.';
+      }
+    });
+    Future.delayed(const Duration(milliseconds: 2000), () {
+      if (mounted) setState(() => claveResaltada = null);
+    });
+  }
 
-      arbol.limpiar();
-
-      recorrido = "";
+  void limpiar(AppProvider provider) {
+    provider.arbolManualLimpiar();
+    setState(() {
+      claveResaltada = null;
+      mensaje = '🧹 Árbol limpiado.';
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    // Consumer para reaccionar a cambios del provider
+    return Consumer<AppProvider>(
+      builder: (context, provider, _) {
+        final arbol = provider.arbolManual;
+        final colorPrimario = Colors.purple;
+        final inOrden = arbol.enOrden();
 
-    final datos = arbol.enOrden();
-
-    return Scaffold(
-
-      appBar: AppBar(
-        title: const Text("Árbol BST"),
-        backgroundColor: Colors.purple,
-      ),
-
-      body: Padding(
-
-        padding: const EdgeInsets.all(20),
-
-        child: Column(
-
-          children: [
-
-            TextField(
-
-              controller: claveController,
-
-              keyboardType: TextInputType.number,
-
-              decoration: InputDecoration(
-
-                labelText: "Clave (número)",
-
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(15),
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 12),
-
-            TextField(
-
-              controller: valorController,
-
-              decoration: InputDecoration(
-
-                labelText: "Valor (texto)",
-
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(15),
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 20),
-
-            Row(
-
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-
-              children: [
-
-                ElevatedButton(
-                  onPressed: insertar,
-                  child: const Text("Insertar"),
-                ),
-
-                ElevatedButton(
-                  onPressed: limpiar,
-                  child: const Text("Limpiar"),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 20),
-
-            Text(
-              "Recorrido InOrden: $recorrido",
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-
-            const SizedBox(height: 20),
-
-            Expanded(
-
-              child: ListView.builder(
-
-                itemCount: datos.length,
-
-                itemBuilder: (context, index) {
-
-                  return AnimatedContainer(
-
-                    duration: const Duration(
-                      milliseconds: 500,
+        return Scaffold(
+          appBar: AppBar(
+            title: const Text('Árbol BST'),
+            backgroundColor: colorPrimario,
+            foregroundColor: Colors.white,
+          ),
+          drawer: const NavDrawer(),
+          body: Column(
+            children: [
+              // Panel de controles
+              Container(
+                color: Colors.purple.shade50,
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: claveController,
+                            keyboardType: TextInputType.number,
+                            decoration: InputDecoration(
+                              labelText: 'Clave (número)',
+                              isDense: true,
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                              filled: true,
+                              fillColor: Colors.white,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: TextField(
+                            controller: valorController,
+                            decoration: InputDecoration(
+                              labelText: 'Valor (texto)',
+                              isDense: true,
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                              filled: true,
+                              fillColor: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-
-                    margin: const EdgeInsets.all(10),
-
-                    padding: const EdgeInsets.all(20),
-
-                    decoration: BoxDecoration(
-
-                      color: Colors.purple.shade200,
-
-                      borderRadius:
-                          BorderRadius.circular(15),
+                    const SizedBox(height: 10),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        _boton('Insertar', Icons.add_circle_outline, Colors.purple,
+                            () => insertar(provider)),
+                        _boton('Eliminar', Icons.remove_circle_outline, Colors.red,
+                            () => eliminar(provider)),
+                        _boton('Limpiar', Icons.delete_sweep, Colors.grey,
+                            () => limpiar(provider)),
+                      ],
                     ),
-
-                    child: Center(
-                      child: Text(
-                        'Clave: ${datos[index]['clave']} → ${datos[index]['valor']}',
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: buscarController,
+                            keyboardType: TextInputType.number,
+                            decoration: InputDecoration(
+                              labelText: 'Buscar por clave',
+                              isDense: true,
+                              prefixIcon: const Icon(Icons.search, size: 18),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                              filled: true,
+                              fillColor: Colors.white,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        ElevatedButton.icon(
+                          onPressed: () => buscar(provider),
+                          icon: const Icon(Icons.search, size: 16),
+                          label: const Text('Buscar'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.indigo,
+                            foregroundColor: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (mensaje.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Text(
+                          mensaje,
+                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          _chip('Nodos: ${arbol.tamano}', Icons.circle, Colors.purple),
+                          const SizedBox(width: 8),
+                          _chip('Altura: ${arbol.altura()}', Icons.vertical_align_top,
+                              Colors.indigo),
+                        ],
                       ),
                     ),
-                  );
-                },
+                  ],
+                ),
               ),
-            ),
-          ],
-        ),
+              // Visualización del árbol
+              Expanded(
+                child: arbol.estaVacio
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.account_tree_outlined,
+                                size: 64, color: Colors.purple.shade200),
+                            const SizedBox(height: 12),
+                            Text(
+                              'El árbol está vacío.\nInserta nodos para visualizarlo.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(color: Colors.grey.shade500, fontSize: 15),
+                            ),
+                          ],
+                        ),
+                      )
+                    : InteractiveViewer(
+                        boundaryMargin: const EdgeInsets.all(40),
+                        minScale: 0.3,
+                        maxScale: 2.5,
+                        child: CustomPaint(
+                          painter: ArbolBSTPainter(
+                            raiz: arbol.raiz,
+                            altura: arbol.altura(),
+                            claveResaltada: claveResaltada,
+                          ),
+                          size: Size(
+                            _calcularAncho(arbol.altura()),
+                            arbol.altura() * 90.0 + 40,
+                          ),
+                        ),
+                      ),
+              ),
+              if (inOrden.isNotEmpty)
+                Container(
+                  color: Colors.purple.shade50,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'InOrden (ascendente):',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                      ),
+                      const SizedBox(height: 4),
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: inOrden
+                              .map((e) => Container(
+                                    margin: const EdgeInsets.only(right: 6),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 10, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: e['clave'] == claveResaltada
+                                          ? Colors.amber
+                                          : Colors.purple.shade100,
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    child: Text(
+                                      '${e['clave']}',
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ))
+                              .toList(),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  double _calcularAncho(int altura) {
+    if (altura <= 0) return 400;
+    final nodos = (1 << altura);
+    return (nodos * 80.0).clamp(400.0, 4000.0);
+  }
+
+  Widget _boton(String texto, IconData icon, Color color, VoidCallback onPressed) {
+    return ElevatedButton.icon(
+      onPressed: onPressed,
+      icon: Icon(icon, size: 16),
+      label: Text(texto),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: color,
+        foregroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       ),
     );
   }
+
+  Widget _chip(String texto, IconData icon, Color color) {
+    return Chip(
+      avatar: Icon(icon, size: 14, color: color),
+      label: Text(texto,
+          style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.bold)),
+      backgroundColor: color.withOpacity(0.1),
+      padding: EdgeInsets.zero,
+      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// CustomPainter (sin cambios, solo lectura del árbol — no necesita provider)
+// ---------------------------------------------------------------------------
+class ArbolBSTPainter extends CustomPainter {
+  final NodoArbolBST? raiz;
+  final int altura;
+  final int? claveResaltada;
+
+  final Map<int, Offset> _posiciones = {};
+
+  ArbolBSTPainter({
+    required this.raiz,
+    required this.altura,
+    this.claveResaltada,
+  });
+
+  static const double _radioNodo = 26.0;
+  static const double _alturaFila = 90.0;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (raiz == null) return;
+    _calcularPosiciones(raiz, 0, 0, size.width);
+    _dibujarAristas(canvas, raiz);
+    _dibujarNodos(canvas, raiz);
+  }
+
+  void _calcularPosiciones(NodoArbolBST? nodo, int nivel, double xMin, double xMax) {
+    if (nodo == null) return;
+    final x = (xMin + xMax) / 2;
+    final y = nivel * _alturaFila + _radioNodo + 20;
+    _posiciones[nodo.clave] = Offset(x, y);
+    _calcularPosiciones(nodo.izquierdo, nivel + 1, xMin, x);
+    _calcularPosiciones(nodo.derecho, nivel + 1, x, xMax);
+  }
+
+  void _dibujarAristas(Canvas canvas, NodoArbolBST? nodo) {
+    if (nodo == null) return;
+    final paintLinea = Paint()
+      ..color = Colors.purple.shade200
+      ..strokeWidth = 2.0
+      ..style = PaintingStyle.stroke;
+    final origen = _posiciones[nodo.clave];
+    if (origen == null) return;
+    if (nodo.izquierdo != null) {
+      final destino = _posiciones[nodo.izquierdo!.clave];
+      if (destino != null) canvas.drawLine(origen, destino, paintLinea);
+      _dibujarAristas(canvas, nodo.izquierdo);
+    }
+    if (nodo.derecho != null) {
+      final destino = _posiciones[nodo.derecho!.clave];
+      if (destino != null) canvas.drawLine(origen, destino, paintLinea);
+      _dibujarAristas(canvas, nodo.derecho);
+    }
+  }
+
+  void _dibujarNodos(Canvas canvas, NodoArbolBST? nodo) {
+    if (nodo == null) return;
+    final pos = _posiciones[nodo.clave];
+    if (pos == null) return;
+    final esResaltado = nodo.clave == claveResaltada;
+    final esRaiz = nodo.clave == raiz?.clave;
+
+    final paintSombra = Paint()
+      ..color = Colors.black26
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
+    canvas.drawCircle(pos + const Offset(2, 3), _radioNodo, paintSombra);
+
+    final colorFondo = esResaltado
+        ? Colors.amber
+        : esRaiz
+            ? Colors.purple.shade700
+            : Colors.purple.shade400;
+    canvas.drawCircle(pos, _radioNodo, Paint()..color = colorFondo);
+
+    final paintBorde = Paint()
+      ..color = esResaltado ? Colors.orange : Colors.purple.shade900
+      ..strokeWidth = esResaltado ? 3 : 2
+      ..style = PaintingStyle.stroke;
+    canvas.drawCircle(pos, _radioNodo, paintBorde);
+
+    final textoPainter = TextPainter(
+      text: TextSpan(
+        text: '${nodo.clave}',
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: nodo.clave.toString().length > 3 ? 11 : 14,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    );
+    textoPainter.layout();
+    textoPainter.paint(canvas, pos - Offset(textoPainter.width / 2, textoPainter.height / 2));
+
+    final valor = nodo.valor.length > 8 ? '${nodo.valor.substring(0, 7)}…' : nodo.valor;
+    final valorPainter = TextPainter(
+      text: TextSpan(
+        text: valor,
+        style: TextStyle(color: Colors.purple.shade900, fontSize: 10, fontWeight: FontWeight.w500),
+      ),
+      textDirection: TextDirection.ltr,
+    );
+    valorPainter.layout(maxWidth: 80);
+    valorPainter.paint(canvas, Offset(pos.dx - valorPainter.width / 2, pos.dy + _radioNodo + 3));
+
+    _dibujarNodos(canvas, nodo.izquierdo);
+    _dibujarNodos(canvas, nodo.derecho);
+  }
+
+  @override
+  bool shouldRepaint(ArbolBSTPainter oldDelegate) =>
+      oldDelegate.raiz != raiz ||
+      oldDelegate.claveResaltada != claveResaltada ||
+      oldDelegate.altura != altura;
 }
