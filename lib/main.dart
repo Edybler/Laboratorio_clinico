@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import 'providers/app_provider.dart';
 import 'screens/home_screen.dart';
 import 'screens/pacientes_screen.dart';
@@ -35,10 +36,10 @@ class LaboratorioApp extends StatelessWidget {
           seedColor: const Color(0xFF1565C0),
           primary: const Color(0xFF1565C0),
           secondary: const Color(0xFF00897B),
-          background: const Color(0xFFF5F7FF),
+          surface: const Color(0xFFF5F7FF),
         ),
         scaffoldBackgroundColor: const Color(0xFFF5F7FF),
-        cardTheme: CardTheme(
+        cardTheme: CardThemeData(
           elevation: 2,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
@@ -58,7 +59,6 @@ class LaboratorioApp extends StatelessWidget {
         '/grafo': (context) => const GrafoScreen(),
         '/analisis': (context) => const AnalisisScreen(),
       },
->>>>>>> fc58bfbb2ec9e2d7500d3da949caa1f25788ed60
     );
   }
 }
