@@ -25,7 +25,7 @@ class _ColaScreenState extends State<ColaScreen> {
 
     setState(() {
 
-      cola.enqueue(controller.text);
+      cola.encolar(controller.text);
 
       mensaje = "Elemento agregado";
 
@@ -37,7 +37,7 @@ class _ColaScreenState extends State<ColaScreen> {
 
     setState(() {
 
-      final eliminado = cola.dequeue();
+      final eliminado = cola.desencolar();
 
       if (eliminado == null) {
 
@@ -54,7 +54,7 @@ class _ColaScreenState extends State<ColaScreen> {
 
     setState(() {
 
-      cola.clear();
+      cola.limpiar();
 
       mensaje = "Cola limpiada";
     });
@@ -63,7 +63,7 @@ class _ColaScreenState extends State<ColaScreen> {
   @override
   Widget build(BuildContext context) {
 
-    final elementos = cola.getItems();
+    final elementos = cola.aLista();
 
     return Scaffold(
 
