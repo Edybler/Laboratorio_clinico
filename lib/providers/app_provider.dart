@@ -74,6 +74,7 @@ class AppProvider extends ChangeNotifier {
   final ListaDoble<String> listaManual = ListaDoble<String>();
   final ArbolBST arbolManual = ArbolBST();
   final TablaHash hashManual = TablaHash();
+  final Grafo grafoManual = Grafo();
 
   // ── Acciones sobre la PILA manual ────────────────────────────
 
@@ -164,6 +165,24 @@ class AppProvider extends ChangeNotifier {
 
   void hashManualLimpiar() {
     hashManual.limpiar();
+    notifyListeners();
+  }
+
+  // ── Acciones sobre el GRAFO manual ───────────────────────────
+
+  void grafoManualAgregarArista(String desde, String hasta) {
+    grafoManual.agregarArista(desde, hasta);
+    notifyListeners();
+  }
+
+  bool grafoManualEliminarVertice(String vertice) {
+    final ok = grafoManual.eliminarVertice(vertice);
+    notifyListeners();
+    return ok;
+  }
+
+  void grafoManualLimpiar() {
+    grafoManual.limpiar();
     notifyListeners();
   }
 
