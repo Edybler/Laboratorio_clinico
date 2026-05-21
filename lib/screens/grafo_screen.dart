@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/nav_drawer.dart';
 import '../data_structures/grafo.dart';
 
 class GrafoScreen extends StatefulWidget {
@@ -53,6 +54,7 @@ class _GrafoScreenState extends State<GrafoScreen> {
         title: const Text("Grafo"),
         backgroundColor: Colors.teal,
       ),
+      drawer: const NavDrawer(),
 
       body: Padding(
 

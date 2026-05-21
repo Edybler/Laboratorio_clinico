@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/nav_drawer.dart';
 import '../data_structures/lista_enlazada.dart';
 
 class ListaScreen extends StatefulWidget {
@@ -66,6 +67,7 @@ class _ListaScreenState extends State<ListaScreen> {
         title: const Text("Lista Enlazada"),
         backgroundColor: Colors.orange,
       ),
+      drawer: const NavDrawer(),
 
       body: Padding(
 

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/nav_drawer.dart';
 import '../data_structures/tabla_hash.dart';
 
 class HashScreen extends StatefulWidget {
@@ -30,6 +31,7 @@ class _HashScreenState extends State<HashScreen> {
         title: const Text("Tabla Hash"),
         backgroundColor: Colors.red,
       ),
+      drawer: const NavDrawer(),
 
       body: Padding(
 

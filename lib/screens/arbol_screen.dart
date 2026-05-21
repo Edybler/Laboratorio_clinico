@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/nav_drawer.dart';
 import '../data_structures/arbol_bst.dart';
 
 class ArbolScreen extends StatefulWidget {
@@ -59,6 +60,7 @@ class _ArbolScreenState extends State<ArbolScreen> {
         title: const Text("Árbol BST"),
         backgroundColor: Colors.purple,
       ),
+      drawer: const NavDrawer(),
 
       body: Padding(
 

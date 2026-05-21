@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/nav_drawer.dart';
 import '../data_structures/cola.dart';
 
 class ColaScreen extends StatefulWidget {
@@ -71,6 +72,7 @@ class _ColaScreenState extends State<ColaScreen> {
         title: const Text("Pantalla Cola"),
         backgroundColor: Colors.green,
       ),
+      drawer: const NavDrawer(),
 
       body: Padding(
 

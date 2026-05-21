@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/nav_drawer.dart';
 import '../data_structures/pila.dart';
 
 class PilaScreen extends StatefulWidget {
@@ -74,6 +75,7 @@ class _PilaScreenState extends State<PilaScreen> {
         title: const Text("Pantalla Pila"),
         backgroundColor: Colors.blue,
       ),
+      drawer: const NavDrawer(),
 
       body: Padding(
 
