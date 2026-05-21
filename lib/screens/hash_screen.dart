@@ -22,7 +22,7 @@ class _HashScreenState extends State<HashScreen> {
   @override
   Widget build(BuildContext context) {
 
-    final datos = tabla.obtenerTodo();
+    final claves = tabla.claves();
 
     return Scaffold(
 
@@ -67,7 +67,7 @@ class _HashScreenState extends State<HashScreen> {
 
                 setState(() {
 
-                  tabla.insertar(
+                  tabla.poner(
                     claveController.text,
                     valorController.text,
                   );
@@ -86,15 +86,17 @@ class _HashScreenState extends State<HashScreen> {
 
               child: ListView(
 
-                children: datos.entries.map((e) {
+                children: claves.map((clave) {
+
+                  final valor = tabla.obtener(clave)?.toString() ?? '';
 
                   return Card(
 
                     child: ListTile(
 
-                      title: Text(e.key),
+                      title: Text(clave),
 
-                      subtitle: Text(e.value),
+                      subtitle: Text(valor),
 
                       trailing: IconButton(
 
@@ -103,7 +105,7 @@ class _HashScreenState extends State<HashScreen> {
                         onPressed: () {
 
                           setState(() {
-                            tabla.eliminar(e.key);
+                            tabla.eliminar(clave);
                           });
                         },
                       ),
