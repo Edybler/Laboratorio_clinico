@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/app_provider.dart';
 import '../widgets/nav_drawer.dart';
-import '../data_structures/tabla_hash.dart';
 
 class HashScreen extends StatefulWidget {
-
   const HashScreen({super.key});
 
   @override
@@ -11,22 +11,16 @@ class HashScreen extends StatefulWidget {
 }
 
 class _HashScreenState extends State<HashScreen> {
-
-  final TablaHash tabla = TablaHash();
-
-  final TextEditingController claveController =
-      TextEditingController();
-
-  final TextEditingController valorController =
-      TextEditingController();
+  final TextEditingController claveController = TextEditingController();
+  final TextEditingController valorController = TextEditingController();
 
   @override
   Widget build(BuildContext context) {
-
-    final claves = tabla.claves();
+    // Usa el AppProvider para que los datos persistan entre navegaciones
+    final provider = context.watch<AppProvider>();
+    final claves = provider.hashManual.claves();
 
     return Scaffold(
-
       appBar: AppBar(
         title: const Text("Tabla Hash"),
         backgroundColor: Colors.red,
@@ -34,17 +28,12 @@ class _HashScreenState extends State<HashScreen> {
       drawer: const NavDrawer(),
 
       body: Padding(
-
         padding: const EdgeInsets.all(20),
 
         child: Column(
-
           children: [
-
             TextField(
-
               controller: claveController,
-
               decoration: const InputDecoration(
                 labelText: "Clave",
               ),
@@ -53,9 +42,7 @@ class _HashScreenState extends State<HashScreen> {
             const SizedBox(height: 10),
 
             TextField(
-
               controller: valorController,
-
               decoration: const InputDecoration(
                 labelText: "Valor",
               ),
@@ -64,51 +51,35 @@ class _HashScreenState extends State<HashScreen> {
             const SizedBox(height: 20),
 
             ElevatedButton(
-
               onPressed: () {
-
-                setState(() {
-
-                  tabla.poner(
-                    claveController.text,
-                    valorController.text,
-                  );
-
-                  claveController.clear();
-                  valorController.clear();
-                });
+                if (claveController.text.isEmpty) return;
+                // Llama al provider — los datos persisten en toda la sesión
+                provider.hashManualPoner(
+                  claveController.text,
+                  valorController.text,
+                );
+                claveController.clear();
+                valorController.clear();
               },
-
               child: const Text("Insertar"),
             ),
 
             const SizedBox(height: 20),
 
             Expanded(
-
               child: ListView(
-
                 children: claves.map((clave) {
-
-                  final valor = tabla.obtener(clave)?.toString() ?? '';
+                  final valor =
+                      provider.hashManual.obtener(clave)?.toString() ?? '';
 
                   return Card(
-
                     child: ListTile(
-
                       title: Text(clave),
-
                       subtitle: Text(valor),
-
                       trailing: IconButton(
-
                         icon: const Icon(Icons.delete),
-
                         onPressed: () {
-
-                          setState(() {
-                            tabla.eliminar(clave);
-                          });
+                          provider.hashManualEliminar(clave);
                         },
                       ),
                     ),
