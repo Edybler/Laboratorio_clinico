@@ -43,7 +43,7 @@ class _ColaScreenState extends State<ColaScreen> {
 
         return Scaffold(
           appBar: AppBar(
-            title: const Text("Pantalla Cola"),
+            title: const Text("Sala de Espera"),
             backgroundColor: Colors.green,
           ),
           drawer: const NavDrawer(),
@@ -69,11 +69,11 @@ class _ColaScreenState extends State<ColaScreen> {
                   children: [
                     ElevatedButton(
                       onPressed: () => insertar(provider),
-                      child: const Text("Enqueue"),
+                      child: const Text("Agregar"),
                     ),
                     ElevatedButton(
                       onPressed: () => eliminar(provider),
-                      child: const Text("Dequeue"),
+                      child: const Text("Atender"),
                     ),
                   ],
                 ),

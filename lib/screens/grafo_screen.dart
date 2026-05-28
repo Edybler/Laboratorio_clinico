@@ -35,7 +35,7 @@ class _GrafoScreenState extends State<GrafoScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Grafo"),
+        title: const Text("Referencias Médicas"),
         backgroundColor: Colors.teal,
         actions: [
           IconButton(

@@ -45,7 +45,7 @@ class _ListaScreenState extends State<ListaScreen> {
 
         return Scaffold(
           appBar: AppBar(
-            title: const Text("Lista Enlazada"),
+            title: const Text("Resultados de Laboratorio"),
             backgroundColor: Colors.orange,
           ),
           drawer: const NavDrawer(),

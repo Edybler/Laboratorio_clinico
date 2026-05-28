@@ -31,7 +31,7 @@ class _HashScreenState extends State<HashScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Tabla Hash"),
+        title: const Text("Búsqueda Rápida"),
         backgroundColor: Colors.red,
         actions: [
           // Botón para limpiar toda la tabla

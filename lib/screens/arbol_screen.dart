@@ -107,7 +107,7 @@ class _ArbolScreenState extends State<ArbolScreen> {
 
         return Scaffold(
           appBar: AppBar(
-            title: const Text('Árbol BST'),
+            title: const Text('Índice de Pacientes'),
             backgroundColor: colorPrimario,
             foregroundColor: Colors.white,
           ),

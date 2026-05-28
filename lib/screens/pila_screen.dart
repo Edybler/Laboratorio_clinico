@@ -47,7 +47,7 @@ class _PilaScreenState extends State<PilaScreen> {
 
         return Scaffold(
           appBar: AppBar(
-            title: const Text("Pantalla Pila"),
+            title: const Text("Historial de Compras"),
             backgroundColor: Colors.blue,
           ),
           drawer: const NavDrawer(),
@@ -73,11 +73,11 @@ class _PilaScreenState extends State<PilaScreen> {
                   children: [
                     ElevatedButton(
                       onPressed: () => insertar(provider),
-                      child: const Text("Push"),
+                      child: const Text("Agregar"),
                     ),
                     ElevatedButton(
                       onPressed: () => eliminar(provider),
-                      child: const Text("Pop"),
+                      child: const Text("Quitar"),
                     ),
                   ],
                 ),
@@ -121,7 +121,7 @@ class _PilaScreenState extends State<PilaScreen> {
                             child: Text("${index + 1}"),
                           ),
                           title: Text(elementos[index]),
-                          subtitle: const Text("Elemento de la pila"),
+                          subtitle: const Text("Registro de historial"),
                         ),
                       );
                     },
