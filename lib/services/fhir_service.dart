@@ -53,6 +53,7 @@ class FhirService {
       throw _manejarError('obtenerPaciente', e);
     }
   }
+  
 
   Future<List<Paciente>> buscarPacientesPorNombre(String nombre) async {
     final uri = Uri.parse(

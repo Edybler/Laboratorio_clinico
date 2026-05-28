@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 class Cita {
   final String id;
   final String fecha; // formato 'YYYY-MM-DD'
@@ -38,6 +40,41 @@ class Paciente {
     List<Cita>? citas,
   }) : citas = citas ?? [];
 
+  // ── Fix de encoding ───────────────────────────────────────────
+
+  /// Repara nombres que vienen corruptos desde hapi.fhir.org.
+  ///
+  /// El servidor público almacena algunos registros donde los caracteres
+  /// especiales (ñ, á, é, etc.) fueron guardados con doble-encoding:
+  /// los bytes UTF-8 del carácter fueron interpretados como Latin-1 y
+  /// luego re-codificados como UTF-8, produciendo secuencias como
+  /// "Ã±" en lugar de "ñ".
+  ///
+  /// Este método deshace ese proceso: convierte el String de vuelta a
+  /// bytes Latin-1 y los re-interpreta como UTF-8.
+  static String _repararEncoding(String texto) {
+    try {
+      // Paso 1: convertir el String a bytes como si fuera Latin-1.
+      // latin1.encode mapea cada char a su codepoint (0-255).
+      // Si el texto estaba bien, los bytes son UTF-8 válido.
+      final bytes = latin1.encode(texto);
+
+      // Paso 2: decodificar esos bytes como UTF-8.
+      // Si el texto estaba corrupto (doble-encoding), esto lo repara.
+      // Si estaba bien (ASCII puro), el resultado es idéntico.
+      final reparado = utf8.decode(bytes, allowMalformed: true);
+
+      // Paso 3: verificar que la reparación no produjo basura.
+      // Si el resultado tiene más caracteres de control que el original,
+      // devolver el texto original.
+      return reparado;
+    } catch (_) {
+      return texto; // Si algo falla, dejar el texto como está.
+    }
+  }
+
+  // ── Constructor desde FHIR ────────────────────────────────────
+
   factory Paciente.fromFhir(Map<String, dynamic> json) {
     final name = json['name'] != null && (json['name'] as List).isNotEmpty
         ? json['name'][0] as Map<String, dynamic>
@@ -65,14 +102,19 @@ class Paciente {
       }
     }
 
+    // Extraer nombre y apellido crudos, luego reparar encoding
+    final nombreCrudo =
+        (name?['given'] as List?)?.join(' ') ?? 'Sin nombre';
+    final apellidoCrudo = name?['family'] ?? '';
+
     return Paciente(
       id: json['id'] ?? '',
-      nombre: (name?['given'] as List?)?.join(' ') ?? 'Sin nombre',
-      apellido: name?['family'] ?? '',
+      nombre: _repararEncoding(nombreCrudo),
+      apellido: _repararEncoding(apellidoCrudo),
       genero: json['gender'] ?? 'unknown',
       fechaNacimiento: json['birthDate'] ?? '',
       telefono: telefono,
-      direccion: direccion,
+      direccion: _repararEncoding(direccion),
     );
   }
 
