@@ -51,7 +51,7 @@ class NavDrawer extends StatelessWidget {
               padding: EdgeInsets.zero,
               children: [
                 _DrawerItem(
-                  icon: '🔬',
+                  icon: '🏠',
                   label: 'Inicio',
                   route: '/',
                   currentRoute: currentRoute,
@@ -62,12 +62,18 @@ class NavDrawer extends StatelessWidget {
                   route: '/pacientes',
                   currentRoute: currentRoute,
                 ),
+                _DrawerItem(
+                  icon: '👨‍⚕️',
+                  label: 'Médicos',
+                  route: '/medicos',
+                  currentRoute: currentRoute,
+                ),
                 const Divider(indent: 16, endIndent: 16),
                 Padding(
                   padding:
                       const EdgeInsets.only(left: 16, top: 8, bottom: 4),
                   child: Text(
-                    'ESTRUCTURAS DE DATOS',
+                    'GESTIÓN CLÍNICA',
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
@@ -80,45 +86,51 @@ class NavDrawer extends StatelessWidget {
                   ),
                 ),
                 _DrawerItem(
-                  icon: '📚',
-                  label: 'Pila — Historial',
+                  icon: '📋',
+                  label: 'Historial de Consultas',
                   route: '/pila',
                   currentRoute: currentRoute,
                 ),
                 _DrawerItem(
-                  icon: '🔄',
-                  label: 'Cola — Sala de espera',
+                  icon: '🏥',
+                  label: 'Sala de Espera',
                   route: '/cola',
                   currentRoute: currentRoute,
                 ),
                 _DrawerItem(
-                  icon: '🔗',
-                  label: 'Lista enlazada',
+                  icon: '🔬',
+                  label: 'Resultados de Laboratorio',
                   route: '/lista',
                   currentRoute: currentRoute,
                 ),
                 _DrawerItem(
-                  icon: '🌳',
-                  label: 'Árbol BST',
+                  icon: '🗂️',
+                  label: 'Índice de Pacientes',
                   route: '/arbol',
                   currentRoute: currentRoute,
                 ),
                 _DrawerItem(
-                  icon: '#️⃣',
-                  label: 'Tabla hash',
+                  icon: '🔍',
+                  label: 'Búsqueda Rápida',
                   route: '/hash',
                   currentRoute: currentRoute,
                 ),
                 _DrawerItem(
                   icon: '🕸️',
-                  label: 'Grafo médico',
+                  label: 'Red de Referencias Médicas',
                   route: '/grafo',
                   currentRoute: currentRoute,
                 ),
                 const Divider(indent: 16, endIndent: 16),
                 _DrawerItem(
+                  icon: '⚙️',
+                  label: 'Prueba de Procesos',
+                  route: '/simulacion',
+                  currentRoute: currentRoute,
+                ),
+                _DrawerItem(
                   icon: '📊',
-                  label: 'Análisis de datos',
+                  label: 'Estadísticas y Análisis',
                   route: '/analisis',
                   currentRoute: currentRoute,
                 ),
@@ -128,7 +140,7 @@ class NavDrawer extends StatelessWidget {
           const Padding(
             padding: EdgeInsets.all(16),
             child: Text(
-              'v1.0.0 — HAPI FHIR R4',
+              'v2.0.0 — HAPI FHIR R4',
               style: TextStyle(fontSize: 11, color: Colors.grey),
             ),
           ),
