@@ -14,6 +14,48 @@ class FhirService {
     'Content-Type': 'application/fhir+json',
   };
 
+  // ── Helper: decodificación robusta ────────────────────────────
+
+  /// Decodifica el body de la respuesta detectando el charset real.
+  /// El servidor hapi.fhir.org puede devolver bytes Latin-1 aunque
+  /// el Content-Type diga UTF-8. Se intenta UTF-8 primero y, si falla
+  /// o produce caracteres corruptos (Ã, Â, etc.), se reintenta con
+  /// Latin-1 y se convierte a UTF-8 correctamente.
+  String _decodificarRespuesta(http.Response response) {
+    // 1. Intentar UTF-8 estricto
+    try {
+      final texto = utf8.decode(response.bodyBytes, allowMalformed: false);
+      // Verificar si hay secuencias típicas de doble-encoding Latin-1→UTF-8
+      // (ej: "Ã±" es la ñ mal decodificada)
+      if (!_tieneCorrupcion(texto)) {
+        return texto;
+      }
+    } catch (_) {
+      // UTF-8 falló completamente, caer a Latin-1
+    }
+
+    // 2. Decodificar como Latin-1 (ISO-8859-1) y re-encodear a UTF-8
+    // latin1.decode nunca falla porque mapea 1:1 cada byte 0-255
+    return latin1.decode(response.bodyBytes);
+  }
+
+  /// Detecta si el texto tiene secuencias típicas de corrupción
+  /// Latin-1 interpretado como UTF-8 (ej: Ã±=ñ, Ã©=é, Ã=á).
+  bool _tieneCorrupcion(String texto) {
+    // Patrones comunes de doble-encoding
+    const patronesCorruptos = [
+      'Ã±', // ñ
+      'Ã©', // é
+      'Ã¡', // á
+      'Ã­', // í
+      'Ã³', // ó
+      'Ãº', // ú
+      'Ã\u00fc', // ü
+      'Â\u00a0', // espacio no-breakable mal codificado
+    ];
+    return patronesCorruptos.any((p) => texto.contains(p));
+  }
+
   // ── Pacientes ─────────────────────────────────────────────────
 
   /// Obtiene una lista de pacientes del laboratorio.
@@ -22,7 +64,7 @@ class FhirService {
     try {
       final response = await http.get(uri, headers: _headers);
       _validarRespuesta(response);
-      final json = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+      final json = jsonDecode(_decodificarRespuesta(response)) as Map<String, dynamic>;
       final recursos = _parsearBundle(json);
       return recursos.map((r) => Paciente.fromFhir(r)).toList();
     } catch (e) {
@@ -36,7 +78,7 @@ class FhirService {
     try {
       final response = await http.get(uri, headers: _headers);
       _validarRespuesta(response);
-      final json = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+      final json = jsonDecode(_decodificarRespuesta(response)) as Map<String, dynamic>;
       return Paciente.fromFhir(json);
     } catch (e) {
       throw _manejarError('obtenerPaciente', e);
@@ -50,7 +92,7 @@ class FhirService {
     try {
       final response = await http.get(uri, headers: _headers);
       _validarRespuesta(response);
-      final json = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+      final json = jsonDecode(_decodificarRespuesta(response)) as Map<String, dynamic>;
       final recursos = _parsearBundle(json);
       return recursos.map((r) => Paciente.fromFhir(r)).toList();
     } catch (e) {
@@ -67,7 +109,7 @@ class FhirService {
     try {
       final response = await http.get(uri, headers: _headers);
       _validarRespuesta(response);
-      final json = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+      final json = jsonDecode(_decodificarRespuesta(response)) as Map<String, dynamic>;
       final recursos = _parsearBundle(json);
       return recursos.map((r) => Observacion.fromFhir(r)).toList();
     } catch (e) {
@@ -83,7 +125,7 @@ class FhirService {
     try {
       final response = await http.get(uri, headers: _headers);
       _validarRespuesta(response);
-      final json = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+      final json = jsonDecode(_decodificarRespuesta(response)) as Map<String, dynamic>;
       final recursos = _parsearBundle(json);
       return recursos.map((r) => Observacion.fromFhir(r)).toList();
     } catch (e) {
@@ -101,7 +143,7 @@ class FhirService {
     try {
       final response = await http.get(uri, headers: _headers);
       _validarRespuesta(response);
-      final json = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+      final json = jsonDecode(_decodificarRespuesta(response)) as Map<String, dynamic>;
       final recursos = _parsearBundle(json);
       return recursos
           .map((r) => ReporteDiagnostico.fromFhir(r))
@@ -120,7 +162,7 @@ class FhirService {
     try {
       final response = await http.get(uri, headers: _headers);
       _validarRespuesta(response);
-      final json = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+      final json = jsonDecode(_decodificarRespuesta(response)) as Map<String, dynamic>;
       final recursos = _parsearBundle(json);
       return recursos.map((r) => Medico.fromFhir(r)).toList();
     } catch (e) {
@@ -137,7 +179,7 @@ class FhirService {
     try {
       final response = await http.get(uri, headers: _headers);
       _validarRespuesta(response);
-      final json = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+      final json = jsonDecode(_decodificarRespuesta(response)) as Map<String, dynamic>;
       final recursos = _parsearBundle(json);
       return recursos.map((r) => Condicion.fromFhir(r)).toList();
     } catch (e) {
