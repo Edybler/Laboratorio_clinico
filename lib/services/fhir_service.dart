@@ -14,57 +14,27 @@ class FhirService {
     'Content-Type': 'application/fhir+json',
   };
 
-  // ── Helper: decodificación robusta ────────────────────────────
+  // ── Helper: decodificación correcta ───────────────────────────
 
-  /// Decodifica el body de la respuesta detectando el charset real.
-  /// El servidor hapi.fhir.org puede devolver bytes Latin-1 aunque
-  /// el Content-Type diga UTF-8. Se intenta UTF-8 primero y, si falla
-  /// o produce caracteres corruptos (Ã, Â, etc.), se reintenta con
-  /// Latin-1 y se convierte a UTF-8 correctamente.
-  String _decodificarRespuesta(http.Response response) {
-    // 1. Intentar UTF-8 estricto
-    try {
-      final texto = utf8.decode(response.bodyBytes, allowMalformed: false);
-      // Verificar si hay secuencias típicas de doble-encoding Latin-1→UTF-8
-      // (ej: "Ã±" es la ñ mal decodificada)
-      if (!_tieneCorrupcion(texto)) {
-        return texto;
-      }
-    } catch (_) {
-      // UTF-8 falló completamente, caer a Latin-1
-    }
-
-    // 2. Decodificar como Latin-1 (ISO-8859-1) y re-encodear a UTF-8
-    // latin1.decode nunca falla porque mapea 1:1 cada byte 0-255
-    return latin1.decode(response.bodyBytes);
-  }
-
-  /// Detecta si el texto tiene secuencias típicas de corrupción
-  /// Latin-1 interpretado como UTF-8 (ej: Ã±=ñ, Ã©=é, Ã=á).
-  bool _tieneCorrupcion(String texto) {
-    // Patrones comunes de doble-encoding
-    const patronesCorruptos = [
-      'Ã±', // ñ
-      'Ã©', // é
-      'Ã¡', // á
-      'Ã­', // í
-      'Ã³', // ó
-      'Ãº', // ú
-      'Ã\u00fc', // ü
-      'Â\u00a0', // espacio no-breakable mal codificado
-    ];
-    return patronesCorruptos.any((p) => texto.contains(p));
+  /// El servidor hapi.fhir.org devuelve JSON con charset=utf-8 en el
+  /// Content-Type, pero los bytes reales son UTF-8 válido. El problema
+  /// es que `http.Response.body` en Dart usa Latin-1 por defecto cuando
+  /// no puede determinar el charset, corrompiendo los caracteres.
+  /// La solución es leer los bytes crudos y decodificar explícitamente
+  /// con UTF-8, ignorando bytes malformados (allowMalformed: true) para
+  /// que nunca lance excepción.
+  String _decodificar(http.Response response) {
+    return utf8.decode(response.bodyBytes, allowMalformed: true);
   }
 
   // ── Pacientes ─────────────────────────────────────────────────
 
-  /// Obtiene una lista de pacientes del laboratorio.
   Future<List<Paciente>> obtenerPacientes({int count = 20}) async {
     final uri = Uri.parse('$_baseUrl/Patient?_count=$count&_format=json');
     try {
       final response = await http.get(uri, headers: _headers);
       _validarRespuesta(response);
-      final json = jsonDecode(_decodificarRespuesta(response)) as Map<String, dynamic>;
+      final json = jsonDecode(_decodificar(response)) as Map<String, dynamic>;
       final recursos = _parsearBundle(json);
       return recursos.map((r) => Paciente.fromFhir(r)).toList();
     } catch (e) {
@@ -72,27 +42,25 @@ class FhirService {
     }
   }
 
-  /// Obtiene el detalle de un paciente por su ID.
   Future<Paciente> obtenerPaciente(String id) async {
     final uri = Uri.parse('$_baseUrl/Patient/$id?_format=json');
     try {
       final response = await http.get(uri, headers: _headers);
       _validarRespuesta(response);
-      final json = jsonDecode(_decodificarRespuesta(response)) as Map<String, dynamic>;
+      final json = jsonDecode(_decodificar(response)) as Map<String, dynamic>;
       return Paciente.fromFhir(json);
     } catch (e) {
       throw _manejarError('obtenerPaciente', e);
     }
   }
 
-  /// Busca pacientes por nombre usando el API FHIR.
   Future<List<Paciente>> buscarPacientesPorNombre(String nombre) async {
     final uri = Uri.parse(
         '$_baseUrl/Patient?name=${Uri.encodeComponent(nombre)}&_format=json');
     try {
       final response = await http.get(uri, headers: _headers);
       _validarRespuesta(response);
-      final json = jsonDecode(_decodificarRespuesta(response)) as Map<String, dynamic>;
+      final json = jsonDecode(_decodificar(response)) as Map<String, dynamic>;
       final recursos = _parsearBundle(json);
       return recursos.map((r) => Paciente.fromFhir(r)).toList();
     } catch (e) {
@@ -102,14 +70,13 @@ class FhirService {
 
   // ── Observaciones ─────────────────────────────────────────────
 
-  /// Obtiene resultados de exámenes de laboratorio.
   Future<List<Observacion>> obtenerObservaciones({int count = 20}) async {
     final uri =
         Uri.parse('$_baseUrl/Observation?_count=$count&_format=json');
     try {
       final response = await http.get(uri, headers: _headers);
       _validarRespuesta(response);
-      final json = jsonDecode(_decodificarRespuesta(response)) as Map<String, dynamic>;
+      final json = jsonDecode(_decodificar(response)) as Map<String, dynamic>;
       final recursos = _parsearBundle(json);
       return recursos.map((r) => Observacion.fromFhir(r)).toList();
     } catch (e) {
@@ -117,7 +84,6 @@ class FhirService {
     }
   }
 
-  /// Obtiene las observaciones/resultados de un paciente específico.
   Future<List<Observacion>> obtenerObservacionesPaciente(
       String pacienteId) async {
     final uri = Uri.parse(
@@ -125,7 +91,7 @@ class FhirService {
     try {
       final response = await http.get(uri, headers: _headers);
       _validarRespuesta(response);
-      final json = jsonDecode(_decodificarRespuesta(response)) as Map<String, dynamic>;
+      final json = jsonDecode(_decodificar(response)) as Map<String, dynamic>;
       final recursos = _parsearBundle(json);
       return recursos.map((r) => Observacion.fromFhir(r)).toList();
     } catch (e) {
@@ -135,7 +101,6 @@ class FhirService {
 
   // ── Reportes Diagnósticos ────────────────────────────────────
 
-  /// Obtiene reportes diagnósticos completos.
   Future<List<ReporteDiagnostico>> obtenerReportesDiagnosticos(
       {int count = 20}) async {
     final uri = Uri.parse(
@@ -143,11 +108,9 @@ class FhirService {
     try {
       final response = await http.get(uri, headers: _headers);
       _validarRespuesta(response);
-      final json = jsonDecode(_decodificarRespuesta(response)) as Map<String, dynamic>;
+      final json = jsonDecode(_decodificar(response)) as Map<String, dynamic>;
       final recursos = _parsearBundle(json);
-      return recursos
-          .map((r) => ReporteDiagnostico.fromFhir(r))
-          .toList();
+      return recursos.map((r) => ReporteDiagnostico.fromFhir(r)).toList();
     } catch (e) {
       throw _manejarError('obtenerReportesDiagnosticos', e);
     }
@@ -155,14 +118,13 @@ class FhirService {
 
   // ── Médicos ───────────────────────────────────────────────────
 
-  /// Obtiene la lista de médicos y especialistas.
   Future<List<Medico>> obtenerMedicos({int count = 10}) async {
     final uri =
         Uri.parse('$_baseUrl/Practitioner?_count=$count&_format=json');
     try {
       final response = await http.get(uri, headers: _headers);
       _validarRespuesta(response);
-      final json = jsonDecode(_decodificarRespuesta(response)) as Map<String, dynamic>;
+      final json = jsonDecode(_decodificar(response)) as Map<String, dynamic>;
       final recursos = _parsearBundle(json);
       return recursos.map((r) => Medico.fromFhir(r)).toList();
     } catch (e) {
@@ -172,14 +134,13 @@ class FhirService {
 
   // ── Condiciones ───────────────────────────────────────────────
 
-  /// Obtiene condiciones/diagnósticos de pacientes.
   Future<List<Condicion>> obtenerCondiciones({int count = 20}) async {
     final uri =
         Uri.parse('$_baseUrl/Condition?_count=$count&_format=json');
     try {
       final response = await http.get(uri, headers: _headers);
       _validarRespuesta(response);
-      final json = jsonDecode(_decodificarRespuesta(response)) as Map<String, dynamic>;
+      final json = jsonDecode(_decodificar(response)) as Map<String, dynamic>;
       final recursos = _parsearBundle(json);
       return recursos.map((r) => Condicion.fromFhir(r)).toList();
     } catch (e) {
@@ -189,10 +150,8 @@ class FhirService {
 
   // ── Helpers privados ──────────────────────────────────────────
 
-  /// Parsea un Bundle FHIR y extrae la lista de resources.
   List<Map<String, dynamic>> _parsearBundle(Map<String, dynamic> json) {
     if (json['resourceType'] != 'Bundle') {
-      // Respuesta directa de un recurso único
       return [json];
     }
     final entries = json['entry'] as List? ?? [];
@@ -202,7 +161,6 @@ class FhirService {
         .toList();
   }
 
-  /// Valida que la respuesta HTTP sea exitosa.
   void _validarRespuesta(http.Response response) {
     if (response.statusCode == 200) return;
 
@@ -221,13 +179,11 @@ class FhirService {
         mensaje = 'Error interno del servidor FHIR (500).';
         break;
       default:
-        mensaje =
-            'Error inesperado del servidor: ${response.statusCode}.';
+        mensaje = 'Error inesperado del servidor: ${response.statusCode}.';
     }
     throw Exception(mensaje);
   }
 
-  /// Convierte cualquier error en una excepción con contexto.
   Exception _manejarError(String metodo, Object e) {
     if (e is Exception) return e;
     return Exception('Error en FhirService.$metodo: $e');
