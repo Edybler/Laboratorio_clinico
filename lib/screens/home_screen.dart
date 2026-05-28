@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
 import '../widgets/nav_drawer.dart';
-import '../widgets/estructura_visualizer.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -92,25 +91,25 @@ class HomeScreen extends StatelessWidget {
                         physics: const NeverScrollableScrollPhysics(),
                         childAspectRatio: 1.4,
                         children: [
-                          MetricaCard(
+                          _MetricaCard(
                             titulo: 'Total Pacientes',
                             valor: '${provider.pacientes.length}',
                             icono: Icons.people_alt_outlined,
                             color: Theme.of(context).colorScheme.primary,
                           ),
-                          MetricaCard(
-                            titulo: 'En Espera',
+                          _MetricaCard(
+                            titulo: 'En Sala de Espera',
                             valor: '${provider.colaEspera.tamano}',
                             icono: Icons.access_time_outlined,
                             color: const Color(0xFF00897B),
                           ),
-                          MetricaCard(
-                            titulo: 'Exámenes Cargados',
-                            valor: '${provider.observaciones.length}',
-                            icono: Icons.science_outlined,
-                            color: Colors.orange[700]!,
+                          _MetricaCard(
+                            titulo: 'Atendidos Hoy',
+                            valor: '${provider.atendidosHoy.length}',
+                            icono: Icons.check_circle_outline,
+                            color: Colors.green[700]!,
                           ),
-                          MetricaCard(
+                          _MetricaCard(
                             titulo: 'Médicos',
                             valor: '${provider.medicos.length}',
                             icono: Icons.medical_services_outlined,
@@ -121,60 +120,103 @@ class HomeScreen extends StatelessWidget {
 
                       const SizedBox(height: 20),
 
-                      // Estado de las estructuras de datos
-                      const Text(
-                        'Estructuras de datos',
-                        style: TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 10),
-                      EstructuraVisualizer(
-                        titulo: 'Pila — Historial de exámenes',
-                        cantidad: provider.pilaHistorial.tamano,
-                        icono: Icons.layers_outlined,
-                        color: Colors.deepPurple,
-                        descripcion: 'Exámenes consultados (LIFO)',
-                      ),
-                      const SizedBox(height: 8),
-                      EstructuraVisualizer(
-                        titulo: 'Cola — Sala de espera',
-                        cantidad: provider.colaEspera.tamano,
-                        icono: Icons.queue_outlined,
-                        color: const Color(0xFF00897B),
-                        descripcion: 'Pacientes en espera (FIFO)',
+                      // ── Pacientes Atendidos del Día ─────────────────
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Pacientes Atendidos Hoy',
+                            style: TextStyle(
+                                fontSize: 16, fontWeight: FontWeight.bold),
+                          ),
+                          if (provider.atendidosHoy.isNotEmpty)
+                            Chip(
+                              label: Text('${provider.atendidosHoy.length}'),
+                              backgroundColor: Colors.green[50],
+                              labelStyle: TextStyle(
+                                  color: Colors.green[700],
+                                  fontWeight: FontWeight.bold),
+                            ),
+                        ],
                       ),
                       const SizedBox(height: 8),
-                      EstructuraVisualizer(
-                        titulo: 'Lista — Resultados de laboratorio',
-                        cantidad: provider.listaResultados.tamano,
-                        icono: Icons.list_alt_outlined,
-                        color: Colors.orange[700]!,
-                        descripcion: 'Lista doblemente enlazada',
+                      if (provider.atendidosHoy.isEmpty)
+                        Card(
+                          child: Padding(
+                            padding: const EdgeInsets.all(20),
+                            child: Center(
+                              child: Column(
+                                children: [
+                                  Icon(Icons.medical_services_outlined,
+                                      size: 40, color: Colors.grey[400]),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    'Ningún paciente atendido aún hoy',
+                                    style: TextStyle(color: Colors.grey[600]),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        )
+                      else
+                        ...provider.atendidosHoy.reversed.map(
+                          (a) => _AtendidoTile(atendido: a),
+                        ),
+
+                      // Sala de espera actual
+                      const SizedBox(height: 20),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Cola de Espera Actual',
+                            style: TextStyle(
+                                fontSize: 16, fontWeight: FontWeight.bold),
+                          ),
+                          if (provider.colaEspera.tamano > 0)
+                            ElevatedButton.icon(
+                              onPressed: () {
+                                final atendido =
+                                    provider.atenderSiguiente();
+                                if (context.mounted && atendido != null) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                          '✅ ${atendido.nombreCompleto} atendido'),
+                                      backgroundColor: Colors.green[700],
+                                      behavior: SnackBarBehavior.floating,
+                                    ),
+                                  );
+                                }
+                              },
+                              icon: const Icon(Icons.play_arrow, size: 18),
+                              label: const Text('Atender siguiente'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF00897B),
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 6),
+                                textStyle: const TextStyle(fontSize: 13),
+                              ),
+                            ),
+                        ],
                       ),
                       const SizedBox(height: 8),
-                      EstructuraVisualizer(
-                        titulo: 'Árbol BST — Índice de pacientes',
-                        cantidad: provider.pacientes.length,
-                        icono: Icons.account_tree_outlined,
-                        color: Colors.green[700]!,
-                        descripcion: 'Búsqueda por clave numérica',
-                      ),
-                      const SizedBox(height: 8),
-                      EstructuraVisualizer(
-                        titulo: 'Tabla Hash — Búsqueda rápida',
-                        cantidad: provider.pacientes.length,
-                        icono: Icons.tag,
-                        color: Colors.blueGrey[700]!,
-                        descripcion: '31 cubetas, O(1) promedio',
-                      ),
-                      const SizedBox(height: 8),
-                      EstructuraVisualizer(
-                        titulo: 'Grafo — Red médica',
-                        cantidad: provider.medicos.length,
-                        icono: Icons.hub_outlined,
-                        color: Colors.teal[700]!,
-                        descripcion: 'Vértices = médicos',
-                      ),
+                      if (provider.colaEspera.tamano == 0)
+                        Card(
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Center(
+                              child: Text(
+                                'Sin pacientes en espera',
+                                style: TextStyle(color: Colors.grey[600]),
+                              ),
+                            ),
+                          ),
+                        )
+                      else
+                        _ColaEsperaPreview(provider: provider),
 
                       // Mensaje si no hay datos cargados
                       if (provider.pacientes.isEmpty &&
@@ -256,6 +298,144 @@ class HomeScreen extends StatelessWidget {
             foregroundColor: Colors.white,
           );
         },
+      ),
+    );
+  }
+}
+
+// ── Widgets locales ───────────────────────────────────────────────
+
+class _MetricaCard extends StatelessWidget {
+  final String titulo;
+  final String valor;
+  final IconData icono;
+  final Color color;
+
+  const _MetricaCard({
+    required this.titulo,
+    required this.valor,
+    required this.icono,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icono, color: color, size: 28),
+            const SizedBox(height: 6),
+            Text(
+              valor,
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
+            ),
+            Text(
+              titulo,
+              style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+              textAlign: TextAlign.center,
+              maxLines: 2,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AtendidoTile extends StatelessWidget {
+  final PacienteAtendido atendido;
+
+  const _AtendidoTile({required this.atendido});
+
+  @override
+  Widget build(BuildContext context) {
+    final hora =
+        '${atendido.horaAtencion.hour.toString().padLeft(2, '0')}:${atendido.horaAtencion.minute.toString().padLeft(2, '0')}';
+    return Card(
+      margin: const EdgeInsets.only(bottom: 6),
+      child: ListTile(
+        leading: CircleAvatar(
+          backgroundColor: Colors.green[50],
+          child: Icon(Icons.check, color: Colors.green[700], size: 20),
+        ),
+        title: Text(
+          atendido.paciente.nombreCompleto,
+          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+        ),
+        subtitle: Text(
+          'ID: ${atendido.paciente.id}',
+          style: const TextStyle(fontSize: 12),
+        ),
+        trailing: Container(
+          padding:
+              const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: Colors.green[50],
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.green[200]!),
+          ),
+          child: Text(
+            hora,
+            style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+                color: Colors.green[800]),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ColaEsperaPreview extends StatelessWidget {
+  final AppProvider provider;
+
+  const _ColaEsperaPreview({required this.provider});
+
+  @override
+  Widget build(BuildContext context) {
+    final elementos = provider.colaEspera.aLista();
+    return Card(
+      child: Column(
+        children: [
+          ...elementos.asMap().entries.map((entry) {
+            final idx = entry.key;
+            final paciente = entry.value;
+            return ListTile(
+              dense: true,
+              leading: CircleAvatar(
+                radius: 14,
+                backgroundColor:
+                    Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                child: Text(
+                  '${idx + 1}',
+                  style: TextStyle(
+                      fontSize: 12,
+                      color: Theme.of(context).colorScheme.primary,
+                      fontWeight: FontWeight.bold),
+                ),
+              ),
+              title: Text(paciente.nombreCompleto,
+                  style: const TextStyle(fontSize: 14)),
+              subtitle: Text('ID: ${paciente.id}',
+                  style: const TextStyle(fontSize: 11)),
+              trailing: idx == 0
+                  ? const Chip(
+                      label: Text('Siguiente',
+                          style: TextStyle(fontSize: 11)),
+                      backgroundColor: Color(0xFFE8F5E9),
+                    )
+                  : null,
+            );
+          }),
+        ],
       ),
     );
   }

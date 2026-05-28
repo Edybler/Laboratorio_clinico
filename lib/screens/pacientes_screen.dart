@@ -32,21 +32,9 @@ class _PacientesScreenState extends State<PacientesScreen> {
       });
       return;
     }
-
-    final String clave = query.trim().toLowerCase();
-    final dynamic resultado = provider.hashBusqueda.obtener(clave);
-
     setState(() {
       _buscando = true;
-      if (resultado != null) {
-        _resultadosBusqueda = [resultado as Paciente];
-      } else {
-        _resultadosBusqueda = provider.pacientes.where((p) {
-          final String nombreCompleto =
-              '${p.nombre} ${p.apellido}'.toLowerCase();
-          return nombreCompleto.contains(clave);
-        }).toList();
-      }
+      _resultadosBusqueda = provider.buscarPacientes(query);
     });
   }
 
@@ -208,14 +196,13 @@ class _PacientesScreenState extends State<PacientesScreen> {
       builder: (ctx) => AlertDialog(
         title: const Row(
           children: [
-            Icon(Icons.warning_amber_rounded, color: Colors.red),
+            Icon(Icons.warning_amber_outlined, color: Colors.red),
             SizedBox(width: 8),
             Text('Eliminar Paciente'),
           ],
         ),
         content: Text(
-          '¿Estás seguro de que deseas eliminar a\n"${paciente.nombreCompleto}"?\n\nEsta acción no se puede deshacer.',
-        ),
+            '¿Estás seguro de eliminar a "${paciente.nombreCompleto}"?\nEsta acción no se puede deshacer.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
@@ -224,19 +211,21 @@ class _PacientesScreenState extends State<PacientesScreen> {
           ElevatedButton.icon(
             icon: const Icon(Icons.delete_outline),
             label: const Text('Eliminar'),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
             onPressed: () {
               provider.eliminarPaciente(paciente.id);
               Navigator.pop(ctx);
-              // Limpiar búsqueda si el paciente eliminado estaba en resultados
+              // Limpiar búsqueda si el eliminado estaba en resultados
               if (_buscando) {
                 _buscar(_searchController.text, provider);
               }
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                      '🗑️ Paciente "${paciente.nombreCompleto}" eliminado'),
-                  backgroundColor: Colors.red[700],
+                const SnackBar(
+                  content: Text('🗑️ Paciente eliminado'),
+                  backgroundColor: Colors.red,
                   behavior: SnackBarBehavior.floating,
                 ),
               );
@@ -247,161 +236,7 @@ class _PacientesScreenState extends State<PacientesScreen> {
     );
   }
 
-  // ── Dialogo: Agregar Cita ─────────────────────────────────────
-
-  void _mostrarDialogoAgregarCita(Paciente paciente, AppProvider provider) {
-    final motivoCtrl = TextEditingController();
-    String fechaSeleccionada = '';
-    String horaSeleccionada = '';
-    final formKey = GlobalKey<FormState>();
-
-    showDialog(
-      context: context,
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (ctx, setStateDialog) {
-            return AlertDialog(
-              title: Row(
-                children: [
-                  const Icon(Icons.calendar_today_outlined,
-                      color: Color(0xFF00897B)),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Nueva Cita\n${paciente.nombreCompleto}',
-                      style: const TextStyle(fontSize: 15),
-                    ),
-                  ),
-                ],
-              ),
-              content: Form(
-                key: formKey,
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Selector de fecha
-                      ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: const Icon(Icons.date_range_outlined),
-                        title: Text(
-                          fechaSeleccionada.isEmpty
-                              ? 'Seleccionar fecha *'
-                              : fechaSeleccionada,
-                          style: TextStyle(
-                            color: fechaSeleccionada.isEmpty
-                                ? Colors.grey[600]
-                                : Colors.black87,
-                          ),
-                        ),
-                        onTap: () async {
-                          final DateTime? picked = await showDatePicker(
-                            context: ctx,
-                            initialDate: DateTime.now(),
-                            firstDate: DateTime.now(),
-                            lastDate: DateTime.now()
-                                .add(const Duration(days: 365)),
-                          );
-                          if (picked != null) {
-                            setStateDialog(() {
-                              fechaSeleccionada =
-                                  '${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}';
-                            });
-                          }
-                        },
-                      ),
-                      const Divider(height: 1),
-                      // Selector de hora
-                      ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: const Icon(Icons.access_time_outlined),
-                        title: Text(
-                          horaSeleccionada.isEmpty
-                              ? 'Seleccionar hora *'
-                              : horaSeleccionada,
-                          style: TextStyle(
-                            color: horaSeleccionada.isEmpty
-                                ? Colors.grey[600]
-                                : Colors.black87,
-                          ),
-                        ),
-                        onTap: () async {
-                          final TimeOfDay? picked = await showTimePicker(
-                            context: ctx,
-                            initialTime: TimeOfDay.now(),
-                          );
-                          if (picked != null) {
-                            setStateDialog(() {
-                              horaSeleccionada =
-                                  '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
-                            });
-                          }
-                        },
-                      ),
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        controller: motivoCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'Motivo de la cita',
-                          prefixIcon: Icon(Icons.notes_outlined),
-                          border: OutlineInputBorder(),
-                          hintText: 'Ej: Control mensual',
-                        ),
-                        maxLines: 2,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: const Text('Cancelar'),
-                ),
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.check_outlined),
-                  label: const Text('Agendar'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF00897B),
-                    foregroundColor: Colors.white,
-                  ),
-                  onPressed: () {
-                    if (fechaSeleccionada.isEmpty ||
-                        horaSeleccionada.isEmpty) {
-                      ScaffoldMessenger.of(ctx).showSnackBar(
-                        const SnackBar(
-                          content: Text('Por favor selecciona fecha y hora'),
-                          behavior: SnackBarBehavior.floating,
-                        ),
-                      );
-                      return;
-                    }
-                    provider.agregarCita(
-                      pacienteId: paciente.id,
-                      fecha: fechaSeleccionada,
-                      hora: horaSeleccionada,
-                      motivo: motivoCtrl.text,
-                    );
-                    Navigator.pop(ctx);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                            '📅 Cita agendada para $fechaSeleccionada a las $horaSeleccionada'),
-                        backgroundColor: const Color(0xFF00897B),
-                        behavior: SnackBarBehavior.floating,
-                      ),
-                    );
-                  },
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-
-  // ── Dialogo: Ver y gestionar citas del paciente ───────────────
+  // ── Dialogo: Ver/Gestionar Citas del Paciente ─────────────────
 
   void _mostrarCitasPaciente(Paciente paciente, AppProvider provider) {
     showModalBottomSheet(
@@ -411,19 +246,20 @@ class _PacientesScreenState extends State<PacientesScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (ctx) {
-        return Consumer<AppProvider>(
-          builder: (ctx, prov, _) {
-            // Obtener la versión actualizada del paciente
-            final Paciente actual = prov.pacientes.firstWhere(
+        return StatefulBuilder(
+          builder: (ctx, setStateSheet) {
+            // Obtener paciente actualizado del provider
+            final Paciente actual = provider.pacientes.firstWhere(
               (p) => p.id == paciente.id,
               orElse: () => paciente,
             );
+
             return DraggableScrollableSheet(
+              initialChildSize: 0.6,
+              maxChildSize: 0.92,
+              minChildSize: 0.35,
               expand: false,
-              initialChildSize: 0.55,
-              minChildSize: 0.3,
-              maxChildSize: 0.85,
-              builder: (_, scrollCtrl) {
+              builder: (_, scrollController) {
                 return Padding(
                   padding: const EdgeInsets.all(16),
                   child: Column(
@@ -442,26 +278,28 @@ class _PacientesScreenState extends State<PacientesScreen> {
                         ),
                       ),
                       Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Icon(Icons.calendar_month_outlined,
-                              color: Color(0xFF00897B)),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'Citas de ${actual.nombreCompleto}',
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
+                          Text(
+                            'Citas de ${actual.nombre}',
+                            style: const TextStyle(
+                                fontSize: 18, fontWeight: FontWeight.bold),
                           ),
-                          TextButton.icon(
-                            icon: const Icon(Icons.add),
-                            label: const Text('Agregar'),
-                            onPressed: () {
-                              Navigator.pop(ctx);
-                              _mostrarDialogoAgregarCita(actual, provider);
-                            },
+                          ElevatedButton.icon(
+                            onPressed: () =>
+                                _agregarCitaDialog(actual, provider, () {
+                              setStateSheet(() {});
+                            }),
+                            icon: const Icon(Icons.add, size: 16),
+                            label: const Text('Nueva cita'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor:
+                                  const Color(0xFF1565C0),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 6),
+                              textStyle: const TextStyle(fontSize: 13),
+                            ),
                           ),
                         ],
                       ),
@@ -476,7 +314,7 @@ class _PacientesScreenState extends State<PacientesScreen> {
                                     size: 48, color: Colors.grey[400]),
                                 const SizedBox(height: 8),
                                 Text(
-                                  'No hay citas registradas',
+                                  'Sin citas registradas',
                                   style: TextStyle(color: Colors.grey[600]),
                                 ),
                               ],
@@ -486,13 +324,12 @@ class _PacientesScreenState extends State<PacientesScreen> {
                       else
                         Expanded(
                           child: ListView.builder(
-                            controller: scrollCtrl,
+                            controller: scrollController,
                             itemCount: actual.citas.length,
                             itemBuilder: (_, index) {
-                              final Cita cita = actual.citas[index];
+                              final cita = actual.citas[index];
                               return Card(
-                                margin:
-                                    const EdgeInsets.symmetric(vertical: 4),
+                                margin: const EdgeInsets.only(bottom: 8),
                                 child: ListTile(
                                   leading: CircleAvatar(
                                     backgroundColor: const Color(0xFF00897B)
@@ -515,15 +352,15 @@ class _PacientesScreenState extends State<PacientesScreen> {
                                         color: Colors.red),
                                     tooltip: 'Eliminar cita',
                                     onPressed: () {
-                                      prov.eliminarCita(
+                                      provider.eliminarCita(
                                         pacienteId: actual.id,
                                         citaId: cita.id,
                                       );
+                                      setStateSheet(() {});
                                       ScaffoldMessenger.of(context)
                                           .showSnackBar(
                                         const SnackBar(
-                                          content:
-                                              Text('🗑️ Cita eliminada'),
+                                          content: Text('🗑️ Cita eliminada'),
                                           behavior:
                                               SnackBarBehavior.floating,
                                           backgroundColor: Colors.red,
@@ -544,6 +381,99 @@ class _PacientesScreenState extends State<PacientesScreen> {
           },
         );
       },
+    );
+  }
+
+  void _agregarCitaDialog(
+      Paciente paciente, AppProvider provider, VoidCallback onAgregada) {
+    final fechaCtrl = TextEditingController();
+    final horaCtrl = TextEditingController();
+    final motivoCtrl = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.event_available_outlined, color: Color(0xFF1565C0)),
+            SizedBox(width: 8),
+            Text('Nueva Cita'),
+          ],
+        ),
+        content: Form(
+          key: formKey,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: fechaCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Fecha (YYYY-MM-DD) *',
+                    prefixIcon: Icon(Icons.calendar_today_outlined),
+                    border: OutlineInputBorder(),
+                    hintText: 'Ej: 2025-06-10',
+                  ),
+                  validator: (v) =>
+                      (v == null || v.trim().isEmpty) ? 'Requerido' : null,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: horaCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Hora (HH:mm) *',
+                    prefixIcon: Icon(Icons.access_time_outlined),
+                    border: OutlineInputBorder(),
+                    hintText: 'Ej: 09:30',
+                  ),
+                  validator: (v) =>
+                      (v == null || v.trim().isEmpty) ? 'Requerido' : null,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: motivoCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Motivo',
+                    prefixIcon: Icon(Icons.notes_outlined),
+                    border: OutlineInputBorder(),
+                    hintText: 'Ej: Análisis de sangre',
+                  ),
+                  maxLines: 2,
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton.icon(
+            icon: const Icon(Icons.save_outlined),
+            label: const Text('Guardar'),
+            onPressed: () {
+              if (!formKey.currentState!.validate()) return;
+              provider.agregarCita(
+                pacienteId: paciente.id,
+                fecha: fechaCtrl.text.trim(),
+                hora: horaCtrl.text.trim(),
+                motivo: motivoCtrl.text,
+              );
+              Navigator.pop(ctx);
+              onAgregada();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('✅ Cita registrada'),
+                  backgroundColor: Color(0xFF00897B),
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            },
+          ),
+        ],
+      ),
     );
   }
 
@@ -591,13 +521,13 @@ class _PacientesScreenState extends State<PacientesScreen> {
 
           return Column(
             children: [
-              // Barra de búsqueda
+              // Barra de búsqueda mejorada
               Container(
                 color: Theme.of(context).colorScheme.primary,
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
                 child: SearchBar(
                   controller: _searchController,
-                  hintText: 'Buscar paciente por nombre...',
+                  hintText: 'Buscar por nombre, cita, fecha u hora...',
                   leading: const Icon(Icons.search),
                   trailing: _searchController.text.isNotEmpty
                       ? [
@@ -631,6 +561,16 @@ class _PacientesScreenState extends State<PacientesScreen> {
                       style:
                           TextStyle(fontSize: 12, color: Colors.grey[600]),
                     ),
+                    if (_buscando && lista.isNotEmpty) ...[
+                      const SizedBox(width: 6),
+                      Icon(Icons.filter_alt_outlined,
+                          size: 14, color: Colors.blue[600]),
+                      Text(
+                        ' (nombre, cita, fecha, hora)',
+                        style: TextStyle(
+                            fontSize: 11, color: Colors.blue[600]),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -678,7 +618,6 @@ class _PacientesScreenState extends State<PacientesScreen> {
           );
         },
       ),
-      // FAB con opciones
       floatingActionButton: Consumer<AppProvider>(
         builder: (context, provider, _) {
           return FloatingActionButton.extended(

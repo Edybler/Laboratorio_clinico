@@ -5,6 +5,8 @@ import 'providers/app_provider.dart';
 import 'screens/home_screen.dart';
 import 'screens/pacientes_screen.dart';
 import 'screens/detalle_paciente_screen.dart';
+import 'screens/medicos_screen.dart';
+import 'screens/simulacion_screen.dart';
 import 'screens/pila_screen.dart';
 import 'screens/cola_screen.dart';
 import 'screens/lista_screen.dart';
@@ -51,6 +53,8 @@ class LaboratorioApp extends StatelessWidget {
         '/': (context) => const HomeScreen(),
         '/pacientes': (context) => const PacientesScreen(),
         '/detalle-paciente': (context) => const DetallePacienteScreen(),
+        '/medicos': (context) => const MedicosScreen(),
+        '/simulacion': (context) => const SimulacionScreen(),
         '/pila': (context) => const PilaScreen(),
         '/cola': (context) => const ColaScreen(),
         '/lista': (context) => const ListaScreen(),

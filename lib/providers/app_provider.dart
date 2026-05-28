@@ -15,6 +15,13 @@ import '../models/reporte_diagnostico.dart';
 
 import '../services/fhir_service.dart';
 
+class PacienteAtendido {
+  final Paciente paciente;
+  final DateTime horaAtencion;
+
+  PacienteAtendido({required this.paciente, required this.horaAtencion});
+}
+
 class AppProvider extends ChangeNotifier {
   // ── Servicio FHIR ─────────────────────────────────────────────
   final FhirService _fhirService = FhirService();
@@ -33,13 +40,17 @@ class AppProvider extends ChangeNotifier {
   List<Condicion> _condiciones = [];
   List<ReporteDiagnostico> _reportes = [];
 
+  // ── Pacientes atendidos del día ───────────────────────────────
+  final List<PacienteAtendido> _atendidosHoy = [];
+  List<PacienteAtendido> get atendidosHoy => List.unmodifiable(_atendidosHoy);
+
   List<Paciente> get pacientes => List.unmodifiable(_pacientes);
   List<Observacion> get observaciones => List.unmodifiable(_observaciones);
   List<Medico> get medicos => List.unmodifiable(_medicos);
   List<Condicion> get condiciones => List.unmodifiable(_condiciones);
   List<ReporteDiagnostico> get reportes => List.unmodifiable(_reportes);
 
-  // ── Estructuras de datos del dominio (para FHIR / pacientes) ──
+  // ── Estructuras de datos del dominio ──────────────────────────
 
   /// PILA: Historial de pacientes/exámenes consultados (LIFO)
   final Pila<Paciente> _pilaHistorial = Pila<Paciente>();
@@ -53,11 +64,11 @@ class AppProvider extends ChangeNotifier {
   final ListaDoble<Observacion> _listaResultados = ListaDoble<Observacion>();
   ListaDoble<Observacion> get listaResultados => _listaResultados;
 
-  /// ÁRBOL BST: Índice de pacientes por clave numérica derivada del ID
+  /// ÁRBOL BST: Índice de pacientes
   final ArbolBST _arbolPacientes = ArbolBST();
   ArbolBST get arbolPacientes => _arbolPacientes;
 
-  /// TABLA HASH: Búsqueda rápida de pacientes por nombre completo
+  /// TABLA HASH: Búsqueda rápida de pacientes
   final TablaHash _hashBusqueda = TablaHash();
   TablaHash get hashBusqueda => _hashBusqueda;
 
@@ -75,11 +86,10 @@ class AppProvider extends ChangeNotifier {
 
   // ── Contador para IDs locales ─────────────────────────────────
   int _contadorIdLocal = 1;
+  int _contadorIdMedico = 1;
 
-  // ── GESTIÓN DE PACIENTES (agregar / eliminar) ─────────────────
+  // ── GESTIÓN DE PACIENTES ──────────────────────────────────────
 
-  /// Agrega un paciente creado localmente.
-  /// Retorna el paciente creado.
   Paciente agregarPaciente({
     required String nombre,
     required String apellido,
@@ -100,9 +110,61 @@ class AppProvider extends ChangeNotifier {
     );
 
     _pacientes = [..._pacientes, paciente];
+    _indexarPaciente(paciente);
+    notifyListeners();
+    return paciente;
+  }
 
-    // Indexar en estructuras de datos
-    final int clave = _claveNumerica(nuevoId);
+  /// Actualiza los datos de un paciente existente.
+  bool actualizarPaciente({
+    required String pacienteId,
+    required String nombre,
+    required String apellido,
+    required String genero,
+    required String fechaNacimiento,
+    required String telefono,
+    required String direccion,
+  }) {
+    final int idx = _pacientes.indexWhere((p) => p.id == pacienteId);
+    if (idx == -1) return false;
+
+    final Paciente anterior = _pacientes[idx];
+    final Paciente actualizado = Paciente(
+      id: pacienteId,
+      nombre: nombre.trim(),
+      apellido: apellido.trim(),
+      genero: genero,
+      fechaNacimiento: fechaNacimiento.trim(),
+      telefono: telefono.trim().isEmpty ? 'N/A' : telefono.trim(),
+      direccion: direccion.trim().isEmpty ? 'Sin dirección' : direccion.trim(),
+      citas: anterior.citas,
+    );
+
+    final List<Paciente> nuevaLista = [..._pacientes];
+    nuevaLista[idx] = actualizado;
+    _pacientes = nuevaLista;
+
+    // Re-indexar en hash
+    _hashBusqueda.eliminar(anterior.nombreCompleto.toLowerCase().trim());
+    _hashBusqueda.eliminar(anterior.nombre.toLowerCase().trim());
+    _hashBusqueda.eliminar(anterior.apellido.toLowerCase().trim());
+    _indexarPaciente(actualizado);
+
+    notifyListeners();
+    return true;
+  }
+
+  bool eliminarPaciente(String pacienteId) {
+    final int antes = _pacientes.length;
+    _pacientes = _pacientes.where((p) => p.id != pacienteId).toList();
+    if (_pacientes.length == antes) return false;
+    _arbolPacientes.eliminar(_claveNumerica(pacienteId));
+    notifyListeners();
+    return true;
+  }
+
+  void _indexarPaciente(Paciente paciente) {
+    final int clave = _claveNumerica(paciente.id);
     _arbolPacientes.insertar(clave, paciente.nombreCompleto);
     _hashBusqueda.poner(paciente.nombreCompleto.toLowerCase().trim(), paciente);
     if (paciente.nombre.isNotEmpty) {
@@ -111,29 +173,10 @@ class AppProvider extends ChangeNotifier {
     if (paciente.apellido.isNotEmpty) {
       _hashBusqueda.poner(paciente.apellido.toLowerCase().trim(), paciente);
     }
-
-    notifyListeners();
-    return paciente;
-  }
-
-  /// Elimina un paciente por su id.
-  /// Retorna true si fue eliminado, false si no existía.
-  bool eliminarPaciente(String pacienteId) {
-    final int antes = _pacientes.length;
-    _pacientes = _pacientes.where((p) => p.id != pacienteId).toList();
-    if (_pacientes.length == antes) return false;
-
-    // Eliminar del árbol BST
-    _arbolPacientes.eliminar(_claveNumerica(pacienteId));
-
-    notifyListeners();
-    return true;
   }
 
   // ── GESTIÓN DE CITAS ──────────────────────────────────────────
 
-  /// Agrega una cita a un paciente existente.
-  /// Retorna true si se agregó correctamente.
   bool agregarCita({
     required String pacienteId,
     required String fecha,
@@ -155,17 +198,12 @@ class AppProvider extends ChangeNotifier {
     final List<Paciente> nuevaLista = [..._pacientes];
     nuevaLista[idx] = actualizado;
     _pacientes = nuevaLista;
-
-    // Actualizar hash con el paciente actualizado
     _hashBusqueda.poner(
         actualizado.nombreCompleto.toLowerCase().trim(), actualizado);
-
     notifyListeners();
     return true;
   }
 
-  /// Elimina una cita de un paciente.
-  /// Retorna true si se eliminó correctamente.
   bool eliminarCita({
     required String pacienteId,
     required String citaId,
@@ -177,12 +215,84 @@ class AppProvider extends ChangeNotifier {
     final List<Paciente> nuevaLista = [..._pacientes];
     nuevaLista[idx] = actualizado;
     _pacientes = nuevaLista;
-
     notifyListeners();
     return true;
   }
 
-  // ── Acciones sobre la PILA manual ────────────────────────────
+  // ── GESTIÓN DE MÉDICOS ────────────────────────────────────────
+
+  Medico agregarMedico({
+    required String nombre,
+    required String especialidad,
+    required String telefono,
+    required String email,
+  }) {
+    final String nuevoId = 'medico-local-${_contadorIdMedico++}';
+    final medico = Medico(
+      id: nuevoId,
+      nombre: nombre.trim(),
+      especialidad: especialidad.trim().isEmpty ? 'General' : especialidad.trim(),
+      telefono: telefono.trim().isEmpty ? 'N/A' : telefono.trim(),
+      email: email.trim().isEmpty ? 'N/A' : email.trim(),
+    );
+    _medicos = [..._medicos, medico];
+    _grafoMedicos.agregarVertice(medico.nombre);
+    notifyListeners();
+    return medico;
+  }
+
+  bool eliminarMedico(String medicoId) {
+    final int antes = _medicos.length;
+    _medicos = _medicos.where((m) => m.id != medicoId).toList();
+    if (_medicos.length == antes) return false;
+    notifyListeners();
+    return true;
+  }
+
+  // ── ATENDER PACIENTES ─────────────────────────────────────────
+
+  /// Saca al siguiente paciente de la cola y lo registra como atendido.
+  Paciente? atenderSiguiente() {
+    final p = _colaEspera.desencolar();
+    if (p != null) {
+      _atendidosHoy.add(
+        PacienteAtendido(paciente: p, horaAtencion: DateTime.now()),
+      );
+    }
+    notifyListeners();
+    return p;
+  }
+
+  // ── Acciones sobre estructuras del dominio ────────────────────
+
+  void agregarAlHistorial(Paciente paciente) {
+    _pilaHistorial.push(paciente);
+    notifyListeners();
+  }
+
+  Paciente? retirarDelHistorial() {
+    final p = _pilaHistorial.pop();
+    notifyListeners();
+    return p;
+  }
+
+  void agregarAColaEspera(Paciente paciente) {
+    _colaEspera.encolar(paciente);
+    notifyListeners();
+  }
+
+  void agregarResultado(Observacion obs) {
+    _listaResultados.insertarAlFinal(obs);
+    notifyListeners();
+  }
+
+  bool eliminarResultado(Observacion obs) {
+    final result = _listaResultados.eliminar(obs);
+    notifyListeners();
+    return result;
+  }
+
+  // ── Acciones manuales ─────────────────────────────────────────
 
   void pilaManualPush(String dato) {
     pilaManual.push(dato);
@@ -200,8 +310,6 @@ class AppProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ── Acciones sobre la COLA manual ────────────────────────────
-
   void colaManualEncolar(String dato) {
     colaManual.encolar(dato);
     notifyListeners();
@@ -218,8 +326,6 @@ class AppProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ── Acciones sobre la LISTA manual ───────────────────────────
-
   void listaManualInsertar(String dato) {
     listaManual.insertarAlFinal(dato);
     notifyListeners();
@@ -234,8 +340,6 @@ class AppProvider extends ChangeNotifier {
     listaManual.limpiar();
     notifyListeners();
   }
-
-  // ── Acciones sobre el ÁRBOL manual ───────────────────────────
 
   void arbolManualInsertar(int clave, String valor) {
     arbolManual.insertar(clave, valor);
@@ -257,8 +361,6 @@ class AppProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ── Acciones sobre la HASH manual ────────────────────────────
-
   void hashManualPoner(String clave, String valor) {
     hashManual.poner(clave, valor);
     notifyListeners();
@@ -273,8 +375,6 @@ class AppProvider extends ChangeNotifier {
     hashManual.limpiar();
     notifyListeners();
   }
-
-  // ── Acciones sobre el GRAFO manual ───────────────────────────
 
   void grafoManualAgregarArista(String desde, String hasta) {
     grafoManual.agregarArista(desde, hasta);
@@ -292,7 +392,7 @@ class AppProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ── Métricas de análisis ──────────────────────────────────────
+  // ── Métricas ──────────────────────────────────────────────────
 
   Map<String, int> get distribucionGenero {
     final Map<String, int> dist = {'male': 0, 'female': 0, 'other': 0};
@@ -385,9 +485,11 @@ class AppProvider extends ChangeNotifier {
           direccion: '',
         ),
       );
-      return MapEntry(paciente.nombreCompleto.isNotEmpty
-          ? paciente.nombreCompleto
-          : 'ID: ${e.key}', e.value);
+      return MapEntry(
+          paciente.nombreCompleto.isNotEmpty
+              ? paciente.nombreCompleto
+              : 'ID: ${e.key}',
+          e.value);
     }).toList();
   }
 
@@ -411,39 +513,47 @@ class AppProvider extends ChangeNotifier {
     return hist;
   }
 
-  // ── Acciones sobre estructuras del dominio ────────────────────
+  // ── Búsquedas ─────────────────────────────────────────────────
 
-  void agregarAlHistorial(Paciente paciente) {
-    _pilaHistorial.push(paciente);
-    notifyListeners();
+  /// Búsqueda ampliada: por nombre, cita (motivo), fecha y hora.
+  List<Paciente> buscarPacientes(String query) {
+    if (query.trim().isEmpty) return [];
+    final String clave = query.trim().toLowerCase();
+
+    // 1. Buscar exacto en hash (por nombre)
+    final dynamic exacto = _hashBusqueda.obtener(clave);
+    if (exacto != null) return [exacto as Paciente];
+
+    // 2. Búsqueda ampliada en todos los campos
+    return _pacientes.where((p) {
+      final String nombreCompleto = p.nombreCompleto.toLowerCase();
+      if (nombreCompleto.contains(clave)) return true;
+
+      // Buscar en citas (motivo, fecha, hora)
+      for (final cita in p.citas) {
+        if (cita.motivo.toLowerCase().contains(clave)) return true;
+        if (cita.fecha.toLowerCase().contains(clave)) return true;
+        if (cita.hora.toLowerCase().contains(clave)) return true;
+      }
+      return false;
+    }).toList();
   }
 
-  Paciente? retirarDelHistorial() {
-    final p = _pilaHistorial.pop();
-    notifyListeners();
-    return p;
+  Paciente? buscarPacienteHash(String nombre) {
+    return _hashBusqueda.obtener(nombre.toLowerCase().trim()) as Paciente?;
   }
 
-  void agregarAColaEspera(Paciente paciente) {
-    _colaEspera.encolar(paciente);
-    notifyListeners();
+  String? buscarEnArbol(String pacienteId) {
+    final int clave = _claveNumerica(pacienteId);
+    return _arbolPacientes.buscar(clave);
   }
 
-  Paciente? atenderSiguiente() {
-    final p = _colaEspera.desencolar();
-    notifyListeners();
-    return p;
+  List<String> bfsMedico(String nombreMedico) {
+    return _grafoMedicos.bfs(nombreMedico);
   }
 
-  void agregarResultado(Observacion obs) {
-    _listaResultados.insertarAlFinal(obs);
-    notifyListeners();
-  }
-
-  bool eliminarResultado(Observacion obs) {
-    final result = _listaResultados.eliminar(obs);
-    notifyListeners();
-    return result;
+  List<String> dfsMedico(String nombreMedico) {
+    return _grafoMedicos.dfs(nombreMedico);
   }
 
   // ── Carga principal de datos ──────────────────────────────────
@@ -486,21 +596,7 @@ class AppProvider extends ChangeNotifier {
     _listaResultados.limpiar();
 
     for (final paciente in _pacientes) {
-      final int clave = _claveNumerica(paciente.id);
-      _arbolPacientes.insertar(clave, paciente.nombreCompleto);
-    }
-
-    for (final paciente in _pacientes) {
-      final String clave = paciente.nombreCompleto.toLowerCase().trim();
-      if (clave.isNotEmpty) {
-        _hashBusqueda.poner(clave, paciente);
-      }
-      if (paciente.nombre.isNotEmpty) {
-        _hashBusqueda.poner(paciente.nombre.toLowerCase().trim(), paciente);
-      }
-      if (paciente.apellido.isNotEmpty) {
-        _hashBusqueda.poner(paciente.apellido.toLowerCase().trim(), paciente);
-      }
+      _indexarPaciente(paciente);
     }
 
     final ultimas = _observaciones.length > 10
@@ -536,24 +632,5 @@ class AppProvider extends ChangeNotifier {
       suma += chars.codeUnitAt(i) * (i + 1);
     }
     return suma;
-  }
-
-  // ── Búsquedas ─────────────────────────────────────────────────
-
-  Paciente? buscarPacienteHash(String nombre) {
-    return _hashBusqueda.obtener(nombre.toLowerCase().trim()) as Paciente?;
-  }
-
-  String? buscarEnArbol(String pacienteId) {
-    final int clave = _claveNumerica(pacienteId);
-    return _arbolPacientes.buscar(clave);
-  }
-
-  List<String> bfsMedico(String nombreMedico) {
-    return _grafoMedicos.bfs(nombreMedico);
-  }
-
-  List<String> dfsMedico(String nombreMedico) {
-    return _grafoMedicos.dfs(nombreMedico);
   }
 }
