@@ -26,7 +26,7 @@ class AppProvider extends ChangeNotifier {
   bool get cargando => _cargando;
   String? get error => _error;
 
-  // ── Listas de datos (del API) ─────────────────────────────────
+  // ── Listas de datos (del API + locales) ──────────────────────
   List<Paciente> _pacientes = [];
   List<Observacion> _observaciones = [];
   List<Medico> _medicos = [];
@@ -66,15 +66,121 @@ class AppProvider extends ChangeNotifier {
   Grafo get grafoMedicos => _grafoMedicos;
 
   // ── Estructuras manuales de String (pantallas interactivas) ───
-  // Estas persisten mientras el AppProvider vive (toda la sesión).
-  // Las pantallas PilaScreen, ColaScreen, etc. escriben/leen aquí.
-
   final Pila<String> pilaManual = Pila<String>();
   final Cola<String> colaManual = Cola<String>();
   final ListaDoble<String> listaManual = ListaDoble<String>();
   final ArbolBST arbolManual = ArbolBST();
   final TablaHash hashManual = TablaHash();
   final Grafo grafoManual = Grafo();
+
+  // ── Contador para IDs locales ─────────────────────────────────
+  int _contadorIdLocal = 1;
+
+  // ── GESTIÓN DE PACIENTES (agregar / eliminar) ─────────────────
+
+  /// Agrega un paciente creado localmente.
+  /// Retorna el paciente creado.
+  Paciente agregarPaciente({
+    required String nombre,
+    required String apellido,
+    required String genero,
+    required String fechaNacimiento,
+    required String telefono,
+    required String direccion,
+  }) {
+    final String nuevoId = 'local-${_contadorIdLocal++}';
+    final paciente = Paciente(
+      id: nuevoId,
+      nombre: nombre.trim(),
+      apellido: apellido.trim(),
+      genero: genero,
+      fechaNacimiento: fechaNacimiento.trim(),
+      telefono: telefono.trim().isEmpty ? 'N/A' : telefono.trim(),
+      direccion: direccion.trim().isEmpty ? 'Sin dirección' : direccion.trim(),
+    );
+
+    _pacientes = [..._pacientes, paciente];
+
+    // Indexar en estructuras de datos
+    final int clave = _claveNumerica(nuevoId);
+    _arbolPacientes.insertar(clave, paciente.nombreCompleto);
+    _hashBusqueda.poner(paciente.nombreCompleto.toLowerCase().trim(), paciente);
+    if (paciente.nombre.isNotEmpty) {
+      _hashBusqueda.poner(paciente.nombre.toLowerCase().trim(), paciente);
+    }
+    if (paciente.apellido.isNotEmpty) {
+      _hashBusqueda.poner(paciente.apellido.toLowerCase().trim(), paciente);
+    }
+
+    notifyListeners();
+    return paciente;
+  }
+
+  /// Elimina un paciente por su id.
+  /// Retorna true si fue eliminado, false si no existía.
+  bool eliminarPaciente(String pacienteId) {
+    final int antes = _pacientes.length;
+    _pacientes = _pacientes.where((p) => p.id != pacienteId).toList();
+    if (_pacientes.length == antes) return false;
+
+    // Eliminar del árbol BST
+    _arbolPacientes.eliminar(_claveNumerica(pacienteId));
+
+    notifyListeners();
+    return true;
+  }
+
+  // ── GESTIÓN DE CITAS ──────────────────────────────────────────
+
+  /// Agrega una cita a un paciente existente.
+  /// Retorna true si se agregó correctamente.
+  bool agregarCita({
+    required String pacienteId,
+    required String fecha,
+    required String hora,
+    required String motivo,
+  }) {
+    final int idx = _pacientes.indexWhere((p) => p.id == pacienteId);
+    if (idx == -1) return false;
+
+    final String citaId = 'cita-${DateTime.now().millisecondsSinceEpoch}';
+    final Cita nuevaCita = Cita(
+      id: citaId,
+      fecha: fecha,
+      hora: hora,
+      motivo: motivo.trim().isEmpty ? 'Consulta general' : motivo.trim(),
+    );
+
+    final Paciente actualizado = _pacientes[idx].conCita(nuevaCita);
+    final List<Paciente> nuevaLista = [..._pacientes];
+    nuevaLista[idx] = actualizado;
+    _pacientes = nuevaLista;
+
+    // Actualizar hash con el paciente actualizado
+    _hashBusqueda.poner(
+        actualizado.nombreCompleto.toLowerCase().trim(), actualizado);
+
+    notifyListeners();
+    return true;
+  }
+
+  /// Elimina una cita de un paciente.
+  /// Retorna true si se eliminó correctamente.
+  bool eliminarCita({
+    required String pacienteId,
+    required String citaId,
+  }) {
+    final int idx = _pacientes.indexWhere((p) => p.id == pacienteId);
+    if (idx == -1) return false;
+
+    final Paciente actualizado = _pacientes[idx].sinCita(citaId);
+    final List<Paciente> nuevaLista = [..._pacientes];
+    nuevaLista[idx] = actualizado;
+    _pacientes = nuevaLista;
+
+    notifyListeners();
+    return true;
+  }
 
   // ── Acciones sobre la PILA manual ────────────────────────────
 
@@ -188,7 +294,6 @@ class AppProvider extends ChangeNotifier {
 
   // ── Métricas de análisis ──────────────────────────────────────
 
-  /// Distribución de géneros: {'male': n, 'female': n, 'other': n}
   Map<String, int> get distribucionGenero {
     final Map<String, int> dist = {'male': 0, 'female': 0, 'other': 0};
     for (final p in _pacientes) {
@@ -204,7 +309,6 @@ class AppProvider extends ChangeNotifier {
     return dist;
   }
 
-  /// Distribución de estados de condiciones: {'active': n, 'resolved': n, ...}
   Map<String, int> get distribucionEstadosCondicion {
     final Map<String, int> dist = {};
     for (final c in _condiciones) {
@@ -213,7 +317,6 @@ class AppProvider extends ChangeNotifier {
     return dist;
   }
 
-  /// Distribución de severidades de condiciones
   Map<String, int> get distribucionSeveridad {
     final Map<String, int> dist = {};
     for (final c in _condiciones) {
@@ -223,7 +326,6 @@ class AppProvider extends ChangeNotifier {
     return dist;
   }
 
-  /// Distribución de especialidades médicas
   Map<String, int> get distribucionEspecialidades {
     final Map<String, int> dist = {};
     for (final m in _medicos) {
@@ -233,7 +335,6 @@ class AppProvider extends ChangeNotifier {
     return dist;
   }
 
-  /// Top 5 observaciones más frecuentes por descripción
   List<MapEntry<String, int>> get top5Observaciones {
     final Map<String, int> conteo = {};
     for (final o in _observaciones) {
@@ -244,7 +345,6 @@ class AppProvider extends ChangeNotifier {
     return sorted.take(5).toList();
   }
 
-  /// Distribución de estados de observaciones
   Map<String, int> get distribucionEstadosObservacion {
     final Map<String, int> dist = {};
     for (final o in _observaciones) {
@@ -253,7 +353,6 @@ class AppProvider extends ChangeNotifier {
     return dist;
   }
 
-  /// Distribución de estados de reportes diagnósticos
   Map<String, int> get distribucionEstadosReporte {
     final Map<String, int> dist = {};
     for (final r in _reportes) {
@@ -262,7 +361,6 @@ class AppProvider extends ChangeNotifier {
     return dist;
   }
 
-  /// Pacientes con más observaciones (top 5)
   List<MapEntry<String, int>> get top5PacientesObservaciones {
     final Map<String, int> conteo = {};
     for (final o in _observaciones) {
@@ -293,10 +391,8 @@ class AppProvider extends ChangeNotifier {
     }).toList();
   }
 
-  /// Altura actual del árbol BST
   int get alturaBST => _arbolPacientes.altura();
 
-  /// Total de colisiones en la tabla hash (cubetas con > 1 elemento)
   int get colisionesHash {
     int colisiones = 0;
     for (int i = 0; i < _hashBusqueda.totalCubetas; i++) {
@@ -306,7 +402,6 @@ class AppProvider extends ChangeNotifier {
     return colisiones;
   }
 
-  /// Distribución de ocupación de la tabla hash (histograma de cubetas)
   Map<int, int> get histogramaCubetas {
     final Map<int, int> hist = {};
     for (int i = 0; i < _hashBusqueda.totalCubetas; i++) {
@@ -316,41 +411,35 @@ class AppProvider extends ChangeNotifier {
     return hist;
   }
 
-  // ── Acciones sobre estructuras del dominio (expuestas a la UI) ─
+  // ── Acciones sobre estructuras del dominio ────────────────────
 
-  /// Agrega un paciente al historial (pila)
   void agregarAlHistorial(Paciente paciente) {
     _pilaHistorial.push(paciente);
     notifyListeners();
   }
 
-  /// Retira el paciente más reciente del historial
   Paciente? retirarDelHistorial() {
     final p = _pilaHistorial.pop();
     notifyListeners();
     return p;
   }
 
-  /// Agrega un paciente a la cola de espera
   void agregarAColaEspera(Paciente paciente) {
     _colaEspera.encolar(paciente);
     notifyListeners();
   }
 
-  /// Atiende al siguiente paciente (desencola)
   Paciente? atenderSiguiente() {
     final p = _colaEspera.desencolar();
     notifyListeners();
     return p;
   }
 
-  /// Agrega una observación a la lista de resultados
   void agregarResultado(Observacion obs) {
     _listaResultados.insertarAlFinal(obs);
     notifyListeners();
   }
 
-  /// Elimina una observación de la lista de resultados
   bool eliminarResultado(Observacion obs) {
     final result = _listaResultados.eliminar(obs);
     notifyListeners();
@@ -359,8 +448,6 @@ class AppProvider extends ChangeNotifier {
 
   // ── Carga principal de datos ──────────────────────────────────
 
-  /// Carga todos los datos desde la API HAPI FHIR R4 y los
-  /// distribuye en las estructuras de datos correspondientes.
   Future<void> cargarDatos() async {
     if (_cargando) return;
 
@@ -369,7 +456,6 @@ class AppProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // Carga paralela de todos los recursos
       final resultados = await Future.wait([
         _fhirService.obtenerPacientes(count: 20),
         _fhirService.obtenerObservaciones(count: 30),
@@ -384,7 +470,6 @@ class AppProvider extends ChangeNotifier {
       _condiciones = resultados[3] as List<Condicion>;
       _reportes = resultados[4] as List<ReporteDiagnostico>;
 
-      // Poblar estructuras de datos
       _poblarEstructuras();
     } catch (e) {
       _error = e.toString().replaceFirst('Exception: ', '');
@@ -394,23 +479,17 @@ class AppProvider extends ChangeNotifier {
     }
   }
 
-  /// Distribuye los datos cargados en las 6 estructuras de datos.
   void _poblarEstructuras() {
-    // Limpiar estructuras previas
     _arbolPacientes.limpiar();
     _hashBusqueda.limpiar();
     _grafoMedicos.limpiar();
     _listaResultados.limpiar();
-    // La pila y cola de dominio conservan su estado (son interactivas)
-    // Las estructuras manuales (pilaManual, colaManual, etc.) NUNCA se limpian aquí
 
-    // ── Árbol BST: indexar pacientes por clave numérica ──────────
     for (final paciente in _pacientes) {
       final int clave = _claveNumerica(paciente.id);
       _arbolPacientes.insertar(clave, paciente.nombreCompleto);
     }
 
-    // ── Tabla Hash: búsqueda por nombre completo ─────────────────
     for (final paciente in _pacientes) {
       final String clave = paciente.nombreCompleto.toLowerCase().trim();
       if (clave.isNotEmpty) {
@@ -424,7 +503,6 @@ class AppProvider extends ChangeNotifier {
       }
     }
 
-    // ── Lista doblemente enlazada: últimas 10 observaciones ──────
     final ultimas = _observaciones.length > 10
         ? _observaciones.sublist(_observaciones.length - 10)
         : _observaciones;
@@ -432,7 +510,6 @@ class AppProvider extends ChangeNotifier {
       _listaResultados.insertarAlFinal(obs);
     }
 
-    // ── Grafo: red de médicos por especialidad ───────────────────
     for (final medico in _medicos) {
       _grafoMedicos.agregarVertice(medico.nombre);
     }
@@ -449,7 +526,6 @@ class AppProvider extends ChangeNotifier {
     }
   }
 
-  /// Convierte un ID FHIR (alfanumérico) en una clave entera
   int _claveNumerica(String id) {
     int suma = 0;
     final chars = id.replaceAll(RegExp(r'[^0-9a-zA-Z]'), '');
