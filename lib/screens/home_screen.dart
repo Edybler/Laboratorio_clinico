@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../providers/app_provider.dart';
 import '../widgets/nav_drawer.dart';
 import '../widgets/estructura_visualizer.dart';
 
@@ -45,7 +46,7 @@ class HomeScreen extends StatelessWidget {
                               Theme.of(context)
                                   .colorScheme
                                   .primary
-                                  .withOpacity(0.7),
+                                  .withValues(alpha: 0.7),
                             ],
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
@@ -67,7 +68,7 @@ class HomeScreen extends StatelessWidget {
                             Text(
                               'Programación III — UMG\nAPI: HAPI FHIR R4',
                               style: TextStyle(
-                                color: Colors.white.withOpacity(0.85),
+                                color: Colors.white.withValues(alpha: 0.85),
                                 fontSize: 13,
                               ),
                             ),
@@ -196,7 +197,7 @@ class HomeScreen extends StatelessWidget {
                         ),
                       ],
 
-                      const SizedBox(height: 80), // espacio para el FAB
+                      const SizedBox(height: 80),
                     ],
                   ),
                 ),
@@ -232,8 +233,7 @@ class HomeScreen extends StatelessWidget {
                     } else if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                          content:
-                              Text('✅ Datos cargados correctamente'),
+                          content: Text('✅ Datos cargados correctamente'),
                           behavior: SnackBarBehavior.floating,
                           backgroundColor: Color(0xFF00897B),
                         ),
